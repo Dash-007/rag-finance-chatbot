@@ -12,7 +12,7 @@ class Chatbot:
     """
     Conversational RAG chatbot using ConversationalRetrievalChain.
     """
-    def __init__(self, temperature=0.0, model="gpt-4"):
+    def __init__(self, temperature=0.3, model="gpt-4"):
         """
         Initialize the chatbot.
         """
@@ -38,30 +38,33 @@ class Chatbot:
             openai_api_key=os.environ.get("OPENAI_API_KEY")            
         )
         
-        self.qa_prompt = PromptTemplate(
-            template="""
-            You are a friendly and knowledgeable financial assistant. Have natural conversations while using the provided context to give helpful, accurate responses. Be conversational, personable, and engaging. Do not recite information - weave it naturally into your responses. Build on our conversation history and ask follow-up questions when appropriate.
-            Context: {context}
-            Question: {question} 
-            """,
-            input_variables=["context", "question"]
-        )
+        # self.qa_prompt = PromptTemplate(
+        #     template="""
+        #     You are a friendly and knowledgeable financial assistant. Have natural conversations while using the provided context to give helpful, accurate responses. Be conversational, personable, and engaging. Do not recite information - weave it naturally into your responses. Build on our conversation history and ask follow-up questions when appropriate.
+        #     Context: {context}
+        #     Question: {question} 
+        #     """,
+        #     input_variables=["context", "question"]
+        # )
         
-        self.condense_question_prompt = PromptTemplate(
-            template="""
-            Given the following conversation and a follow up question...
-            """,
-            input_variables=["chat_history", "question"]
-        )
+        # self.condense_question_prompt = PromptTemplate(
+        #     template="""
+        #     Given the following conversation and a follow up question...
+        #     """,
+        #     input_variables=["chat_history", "question"]
+        # )
+        
+        system_message = """You are a friendly and knowledgeable financial assistant. Have natural conversations while using the provided context to give helpful, accurate responses about finance and investments. Be conversational, personable, and engaging. Don't just recite information - weave it naturally into your responses. Build on our conversation history and ask follow-up questions when appropriate."""
         
         # Create conversational retrieval chain
         self.qa = ConversationalRetrievalChain.from_llm(
             llm=self.chat,
             chain_type="stuff",
             retriever=self.vectorstore.as_retriever(search_kwargs={"k": 4}),
-            condense_question_prompt=self.condense_question_prompt,
-            combine_docs_chain_kwargs={"prompt": self.qa_prompt},
-            return_source_documents=True
+            # condense_question_prompt=self.condense_question_prompt,
+            # combine_docs_chain_kwargs={"prompt": self.qa_prompt},
+            return_source_documents=True,
+            verbose=False
         )
         
     def ask(self, question):
@@ -76,6 +79,10 @@ class Chatbot:
             
             # Update chat history
             self.chat_history.append((question, result["answer"]))
+            
+            # Debug
+            print(f"Debug - Question: {question}")
+            print(f"Debug - Got {len(result.get('source_documents', []))} source docs")
             
             return {
                 "response": result["answer"],
