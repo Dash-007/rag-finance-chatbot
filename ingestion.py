@@ -15,7 +15,6 @@ def process_csv_docs(docs, keep_metadata=True, metadata_fields=None):
     
     Args:
         docs (list): List of LangChain Document objects.
-        content_field (str): The field to use as page_content (default 'paragraph').
         keep_metadata (bool): If True, include all other fields as metadata.
         metadata_fields (list): If provided, only include these fields as metadata
         
@@ -79,11 +78,11 @@ processed_doc1 = process_csv_docs(doc1,
 # Load investopedia articles
 doc2 = safe_load_csv('data/investopedia_articles_001.csv', source_column='paragraph')
 print(f"Loaded {len(doc2)} documents from investopedia_articles_001.csv")
-processed_doc2 = process_csv_docs(doc2, keep_metadata=True)
+processed_doc2 = process_csv_docs(doc2, keep_metadata=True, metadata_fields=['title'])
 
 doc3 = safe_load_csv('data/investopedia_articles_002.csv', source_column='paragraph')
 print(f"Loaded {len(doc3)} documents from investopedia_articles_002.csv")
-processed_doc3 = process_csv_docs(doc3, keep_metadata=True)
+processed_doc3 = process_csv_docs(doc3, keep_metadata=True, metadata_fields=['title'])
 
 documents = processed_doc1 + processed_doc2 + processed_doc3
 print(f"Total documents before chunking: {len(documents)}")
@@ -92,3 +91,13 @@ print(f"Total documents before chunking: {len(documents)}")
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 texts = text_splitter.split_documents(documents)
 print(f"created {len(texts)} chunks")
+
+# Create embeddings
+print("Creating embeddings and uploading to Pinecone...")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small", dimensions=512, openai_api_key=os.environ.get("OPENAI_API_KEY"))
+
+# Create vector store
+vector_store = PineconeVectorStore.from_documents(documents=texts, embedding=embeddings, index_name=os.environ.get("INDEX_NAME"))
+
+print(f"Successfully uploaded {len(texts)} chunks to Pinecone index: {os.environ.get('INDEX_NAME')}")
+print("RAG ingestion complete!")
