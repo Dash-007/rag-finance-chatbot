@@ -58,4 +58,62 @@ class Chatbot:
             retriever=self.vectorstore.as_retriever(),
             combine_docs_chain_kwargs={"prompt": self.qa_prompt},
             return_source_documents=True
-        )        
+        )
+        
+    def ask(self, question):
+        """
+        Ask a question and get a conversational response.
+        """
+        try:
+            result = self.qa({
+                "question": question,
+                "chat_history": self.chat_history
+            })
+            
+            # Update chat history
+            self.chat_history.append((question, result["answer"]))
+            
+            return {
+                "response": result["answer"],
+                "sources": self._extract_source_info(result.get("source_documents", []))
+            }
+            
+        except Exception as e:
+            return {
+                "response": "Sorry, I encountered an issue. Could you try asking that again?",
+                "sources": [],
+                "error": str(e)
+            }
+            
+    def _extract_source_info(self, docs):
+        """
+        Extract relevant source information (terms and title only).
+        """
+        sources = []
+        
+        for doc in docs:
+            source_info = {}
+            metadata = doc.metadata
+            
+            if 'terms' in metadata and metadata['terms']:
+                source_info['terms'] = metadata['terms']
+            if 'title' in metadata and metadata['title']:
+                source_info['title'] = metadata['title']
+                
+            if source_info:
+                sources.append(source_info)
+                
+        return sources
+    
+    def clear_history(self):
+        """
+        Clear conversation history.
+        """
+        self.chat_history = []
+        
+    def get_history(self):
+        """
+        Get conversation history
+        """
+        return self.chat_history
+    
