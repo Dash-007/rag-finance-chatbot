@@ -167,3 +167,89 @@ class AdvancedRetriever:
         for doc in docs:
             doc.metadata['strategy'] = 'standard'
         return docs
+    
+class AdvancedRAGChatbot:
+    """
+    Advanced RAG system with query classification and specialized retrieval.
+    """
+    
+    def __init__(self, model="gpt-4", temperature=0.7):
+        self.chat_history = []
+        
+        # Initialize components
+        self.embeddings = OpenAIEmbeddings(
+            model="text-embedding-3-small",
+            dimensions=512,
+            openai_api_key=os.environ.get("OPENAI_API_KEY")
+        )
+        
+        self.vector_store = PineconeVectorStore(
+            index_name = os.environ.get("INDEX_NAME"),
+            embedding=self.embeddings
+        )
+        
+        self.llm = ChatOpenAI(
+            model=model,
+            temperature=temperature,
+            openai_api_key=os.environ.get("OPENAI_API_KEY")
+        )
+        
+        # Advanced components
+        self.classifier = QueryClassifier()
+        self.retriever = AdvancedRetriever(self.vector_store)
+        
+        # Simple stats tracking
+        self.stats = {'total': 0, 'types': {qt.value: 0 for qt in QueryType}}
+        
+    async def ask(self, question: str) -> Dict[str, Any]:
+        """
+        Process question using advanced RAG pipeline.
+        """
+        self.stats['total'] += 1
+        
+        try:
+            # Step 1: Classify query
+            context = self.classifier.classify(question)
+            self.stats['types'][context.query_type.value] += 1
+            
+            print(f"Classified as: {context.query_type.value} (confidence: {context.confidence:.2f})")
+            
+            # Step 2: Specialized retrieval
+            docs = await self.retriever.retrieve(question, context)
+            
+            # Step 3: Generate response with specialized prompt
+            prompt = self._create_prompt(context.query_type)
+            context_text = "\n\n".join([doc.page_content for doc in docs])
+            history_text = self._format_history()
+            
+            # Build final prompt
+            full_prompt = f"""{prompt}
+            
+        Context: {context_text}
+        
+        History: {history_text}
+        
+        Question: {question}
+        
+        Response:"""
+        
+            # Generate answer
+            response = self.llm.invoke([{"role": "user", "content": full_prompt}])
+            answer = response.content
+            
+            # Update history
+            self.chat_history.append((question, answer))
+            
+            return {
+                "response": answer,
+                "query_type": context.query_type.value,
+                "confidence": context.confidence,
+                "sources": len(docs)
+            }
+            
+        except Exception as e:
+            print(f"Error: {e}")
+            return {
+                "response": "I encountered an issue. Please try again.",
+                "error": str(e)
+            }
