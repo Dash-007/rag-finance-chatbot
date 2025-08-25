@@ -61,4 +61,109 @@ class QueryClassifier:
             
             return QueryContext(query_type=best_type, confidence=confidence)
         
+class AdvancedRetriever:
+    """
+    Retrieval ststem with se=pecialized strategies based on query type.
+    """
+    def __init__(self, vector_store: PineconeVectorStore):
+        self.vectore_store = vector_store
+        
+    async def retrieve(self, query: str, query_context: QueryContext, k: int = 4) -> List[Document]:
+        """
+        Perform specialized retrieval based on query classification.
+        """
+        if query_context.query_type == QueryType.DEFINITION:
+            return await self._definition_retrieval(query, k)
+        elif query_context.query_type == QueryType.CALCULATION:
+            return await self._calculation_retrieval(query, k)
+        elif query_context.query_type == QueryType.COMPARISON:
+            return await self._comparison_retrieval(query, k)
+        else:
+            return await self._standard_retrieval(query, k)
+        
+    async def _definition_retrieval(self, query: str, k: int) -> List[Document]:
+        """
+        Prioritize definition-rich content.
+        """
+        docs = self.vectore_store.similarity_search_with_score(query, k=k*2)
+        
+        # Filter for definition indicators
+        definition_docs = []
+        for doc, score in docs:
+            content = doc.page_content.lower()
+            if any(term in content for term in ['definition', 'means', 'refers to', 'is a']):
+                doc.metadata['strategy'] = 'definition_focused'
+                definition_docs.append(doc)
+                
+        # Fill remaining slots with regular results
+        if len(definition_docs) < k:
+            for doc, score in docs:
+                if doc not in definition_docs:
+                    doc.metadata['strategy'] = 'standard'
+                    definition_docs.append(doc)
+                    if len(definition_docs) >= k:
+                        break
+                    
+        return definition_docs[:k]
     
+    async def _calculation_retrieval(self, query: str, k: int) -> List[Document]:
+        """
+        Prioritize content with formilas and examples.
+        """
+        docs = self.vectore_store.similarity_search_with_score(query, k=k*2)
+        
+        # Filter for calculation indications
+        calc_docs = []
+        for doc, score in docs:
+            content = doc.page_content.lower()
+            if any(term in content for term in ['formula', 'calculate', '=', '%', 'example']):
+                doc.metadata['strategy'] = 'calculation_focused'
+                calc_docs.append(doc)
+                
+        # Fill remaining slots
+        if len(calc_docs) < k:
+            for doc, score in docs:
+                if doc not in calc_docs:
+                    doc.metadata['strategy'] = 'standard'
+                    calc_docs.append(doc)
+                    if len(calc_docs) >= k:
+                        break
+                    
+        return calc_docs[:k]
+    
+    async def _comparison_retrieval(self, query: str, k: int) -> List[Document]:
+        """
+        Get diverse content for comparison queries.
+        """
+        query_lower = query.lower()
+        terms = []
+        
+        for delimiter in ['vs ', 'versus ', 'or ', 'between ']:
+            if delimiter in query_lower:
+                parts = query_lower.split(delimiter)
+                terms.extend([part.strip() for part in parts[:2]])
+                break
+            
+        if not terms:
+            terms = [query_lower]
+            
+        # Search for each term
+        all_docs = []
+        for term in terms [:2]:
+            docs = self.vectore_store.similarity_search(term, k=k//2+1)
+            for doc in docs:
+                doc.metadata['strategy'] = 'comparative'
+            all_docs.extend(docs)
+            
+        # Remove duplicate and return top k
+        unique_docs = {doc.page_content[:50]: doc for doc in all_docs}
+        return list(unique_docs.values())[:k]
+    
+    async def _standard_retrieval(self, query: str, k: int) -> List[Document]:
+        """
+        Standard semantic search.
+        """
+        docs = self.vectore_store.similarity_search(query, k=k)
+        for doc in docs:
+            doc.metadata['strategy'] = 'standard'
+        return docs
