@@ -167,3 +167,43 @@ class RAGEvaluator:
             results.append(result)
             
         return results
+    
+    def save_results(self, results: List[EvaluationResult], filename: str = None):
+        """
+        Save evaluation results to JSON file.
+        """
+        if not filename:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"eval_results_{timestamp}.json"
+            
+        filepath = self.result_dir / filename
+        
+        # Convert results to serializable format
+        serializable_result = []
+        for result in results:
+            result_dict = asdict(result)
+            result_dict['timestamp'] = result.timestamp.isoformat()
+            serializable_result.append(result_dict)
+            
+        with open(filepath, 'w') as f:
+            json.dump(serializable_result, f, indent=2)
+            
+        print(f"Results saved to {filepath}")
+        
+        return filepath
+    
+    def load_results(self, filename: str) -> List[EvaluationResult]:
+        """
+        Load evaluation results from JSON file.
+        """
+        filepath = self.result_dir / filename
+        
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+            
+        results = []
+        for item in data:
+            item['timestamp'] = datetime.fromisoformat(item['timestamp'])
+            results.append(EvaluationResult(**item))
+            
+        return results
