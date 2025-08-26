@@ -207,3 +207,138 @@ class RAGEvaluator:
             results.append(EvaluationResult(**item))
             
         return results
+    
+class ABTestManager:
+    """
+    A/B testing manafer for comparing different RAG configurations.
+    """
+    
+    def __init__(self, evaluator: RAGEvaluator):
+        self.evaluator = evaluator
+        self.experiments = {}
+        
+    async def run_ab_test(self,
+                          model_a,
+                          model_b,
+                          test_name: str,
+                          model_a_name: str = "baseline",
+                          model_b_name: str = "variant") -> Dict[str, Any]:
+        """
+        Run A/B test comparing two model configurations.
+        
+        Args:
+            model_a: Baseline model instance
+            model_b: Variant model instance
+            test_name: Name for this experiment
+            model_a_name: Name for model A
+            model_b_name: Name for model B
+            
+        Returns:
+            Comparision results
+        """
+        print(f"🧪 Starting A/B Test: {test_name}")
+        print(f"Model A: {model_a_name}")
+        print(f"Model B: {model_b_name}")
+        
+        # Evaluate both models
+        results_a = await self.evaluator.evaluate_model(model_a, model_a_name)
+        results_b = await self.evaluator.evaluate_model(model_b, model_b_name)
+        
+        # Calculate aggregate metrics
+        comparison = self._compare_results(results_a, results_b, model_a_name, model_b_name)
+        
+        # Save experiment data
+        experiment_data = {
+            'test_name': test_name,
+            'timestamp': datetime.now().isoformat(),
+            'results_a': results_a,
+            'results_b': results_b,
+            'comparison': comparison
+        }
+        
+        self.experiments[test_name] = experiment_data
+        
+        # Save results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.evaluator.save_results(results_a, f"ab_test_{test_name}_{model_a_name}_{timestamp}.json")
+        self.evaluator.save_results(results_b, f"ab_test_{test_name}_{model_b_name}_{timestamp}.json")
+        
+        return comparison
+    
+    def _compare_results(self,
+                         results_a: List[EvaluationResult],
+                         results_b: List[EvaluationResult],
+                         name_a: str,
+                         name_b: str) -> Dict[str, Any]:
+        """
+        Compare results from two model variants.
+        """
+        
+        def aggregate_metrics(results: List[EvaluationResult]) -> Dict[str, float]:
+            """
+            Calculate average metrics across all results.
+            """
+            if not results:
+                return {}
+            
+            metric_sums = {}
+            for result in results:
+                for metric, value in result.metric.items():
+                    metric_sums[metric] = metric_sums.get(metric, 0) + value
+                    
+            return {metric: total / len(results) for metric, total in metric_sums.items()}
+        
+        metrics_a = aggregate_metrics(results_a)
+        metrics_b = aggregate_metrics(results_b)
+        
+        # Calculate improvements
+        improvements = {}
+        for metric in metrics_a:
+            if metric in metrics_b:
+                diff = metrics_b[metric] - metrics_a[metric]
+                improvements[metric] = {
+                    'absolute_diff': diff,
+                    'percentage_diff': (diff / metrics_a[metric] * 100) if metrics_a[metric] > 0 else 0
+                }
+                
+        # Average response times
+        avg_time_a = sum(r.response_time for r in results_a) / len(results_a)
+        avg_time_b = sum(r.response_time for r in results_b) / len(results_b)
+        
+        return {
+            'model_a': {
+                'name': name_a,
+                'metrics': metrics_a,
+                'avg_response_time': avg_time_a
+            },
+            'model_b': {
+                'name': name_b,
+                'metrics': metrics_b,
+                'avg_response_time': avg_time_b
+            },
+            'improvements': improvements,
+            'winner': self._determine_winner(metrics_a, metrics_b, name_a, name_b)
+        }
+        
+    def _determine_winner(self, metrics_a: Dict, metrics_b: Dict, name_a: str, name_b: str) -> str:
+        """
+        Simple winner determination based on average metric scores.
+        """
+        avg_a = sum(metrics_a.values()) / len(metrics_a) if metrics_a else 0
+        avg_b = sum(metrics_b.values()) / len(metrics_b) if metrics_b else 0
+        
+        if avg_b > avg_a:
+            return name_b
+        elif avg_a > avg_b:
+            return name_a
+        else:
+            return "tie"
+        
+    def get_experiment_summary(self, test_name: str) -> Dict[str, Any]:
+        """
+        get summary of a specific experiment.
+        """
+        if test_name not in self.experiments:
+            return {"Error": f"Experiment '{test_name}' not found!"}
+        
+        return self.experiments[test_name]['comparison']
