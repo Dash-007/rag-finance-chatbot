@@ -40,26 +40,26 @@ class QueryClassifier:
             QueryType.COMPARISON: ["vs", "versus", "compare", "difference", "between"]
         }
         
-        def classify(self, query: str) -> QueryContext:
-            """
-            Analyze query and return classification with confidence.
-            """
-            query_lower = query.lower()
+    def classify(self, query: str) -> QueryContext:
+        """
+        Analyze query and return classification with confidence.
+        """
+        query_lower = query.lower()
+        
+        # Calculate scores for each query type
+        scores = {}
+        for query_type, keywords in self.patterns.items():
+            score = sum(0.3 for keyword in keywords if keyword in query_lower)
+            scores[query_type] = min(score, 1.0)
             
-            # Calculate scores for each query type
-            scores = {}
-            for query_type, keywords in self.patterns.items():
-                score = sum(0.3 for keyword in keywords if keyword in query_lower)
-                scores[query_type] = min(score, 1.0)
-                
-            # Add baseline for general queries
-            scores[QueryType.GENERAL] = 0.2
-            
-            # Get best match
-            best_type =max(scores, key=scores.get)
-            confidence = scores[best_type]
-            
-            return QueryContext(query_type=best_type, confidence=confidence)
+        # Add baseline for general queries
+        scores[QueryType.GENERAL] = 0.2
+        
+        # Get best match
+        best_type =max(scores, key=scores.get)
+        confidence = scores[best_type]
+        
+        return QueryContext(query_type=best_type, confidence=confidence)
         
 class AdvancedRetriever:
     """
@@ -253,3 +253,105 @@ class AdvancedRAGChatbot:
                 "response": "I encountered an issue. Please try again.",
                 "error": str(e)
             }
+            
+    def _create_prompt(self, query_type: QueryType) -> str:
+        """
+        Create specialized prompts for different query types.
+        """
+        base = "You are a knowledgeable financial assistant."
+        
+        prompts = {
+            QueryType.DEFINITION: f"{base} Focus on clear definitions with examples.",
+            QueryType.CALCULATION: f"{base} Provide step-by-step calculations and formulas.",
+            QueryType.ADVICE: f"{base} Give balanced advice and recommend professional consultation.",
+            QueryType.COMPARISON: f"{base} Compare options objectively, highlighting key differences.",
+            QueryType.GENERAL: f"{base} Provide comprehensive, helpful financial guidance."
+        }
+        
+        return prompts.get(query_type, prompts[QueryType.GENERAL])
+    
+    def _format_history(self) -> str:
+        """
+        Format recent conversation history.
+        """
+        if not self.chat_history:
+            return "No previous conversation."
+        
+        # Only include last 2 exchanges to keep prompt manageable
+        recent = self.chat_history[-2:]
+        return "\n".join([f"Q: {q}\nA: {a}" for q, a in recent])
+    
+    def get_stats(self) -> Dict:
+        """
+        Get session statistics.
+        """
+        return {
+            'total_queries': self.stats['total'],
+            'query_types': self.stats['types']
+        }
+        
+    def clear_history(self):
+        """
+        Clear conversation history.
+        """
+        self.chat_history = []
+        
+# Main execution functions
+async def demo():
+    """
+    Quick demo of the advanced RAG system.
+    """
+    print("🚀 Advanced RAG Demo\n")
+    
+    bot = AdvancedRAGChatbot()
+    
+    # Test different query types
+    queries = [
+        "What is compound interest?",
+        "How do I calculate ROI?",
+        "Should I invest in stocks or bonds?",
+        "What's the difference between mutual funds and ETFs?"
+    ]
+    
+    for query in queries:
+        print(f"Query: {query}")
+        result = await bot.ask(query)
+        print(f"Response: {result['response'][:100]}...\n")
+        print(f"Type: {result['query_type']}, Confidence: {result['confidence']:.2f}\n")
+        print("-" * 50)
+        
+async def interactive():
+    """
+    Interactive chat session.
+    """
+    print("🚀 Advanced RAG Chatbot")
+    print("Commands: 'stats, 'clear', 'quit'\n")
+    
+    bot = AdvancedRAGChatbot()
+    
+    while True:
+        user_input = input("You: ").strip()
+        
+        if user_input.lower() == 'quit':
+            break
+        elif user_input.lower() == 'clear':
+            bot.clear_history()
+            print("History cleared!\n")
+            continue
+        elif user_input.lower() == 'stats':
+            stats = bot.get_stats()
+            print(f"stats: {stats}\n")
+            continue
+        elif not user_input:
+            continue
+        
+        result = await bot.ask(user_input)
+        print(f"Bot: {result['response']}\n")
+        
+if __name__ == "__main__":
+    choice = input("Choose mode (1=Demo, 2=Interactive): ")
+    
+    if choice == "1":
+        asyncio.run(demo())
+    else:
+        asyncio.run(interactive())
