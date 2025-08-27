@@ -276,3 +276,144 @@ class AdvancedRetriever:
         except Exception as e:
             logger.error(f"Standard retrieval error: {e}")
             return []
+        
+class OptimizedRAGChatbot:
+    """
+    Production-ready RAG chatbot with configuration management and monitoring.
+    """
+    
+    def __init__(self, config_name: str = "baseline"):
+        self.config_manager = ConfigManager()
+        self.config = self.config_manager.get_model_config(config_name)
+        self.chat_history = []
+        self.stats = {'total': 0, 'types': {qt.value: 0 for qt in QueryType}}
+        
+        # Initialize components with error handling
+        try:
+            self._initialize_components()
+            logger.info(f"Initialized chatbot with config: {config_name}")
+        
+        except Exception as e:
+            logger.error(f"Failed to initialize chatbot: {e}")
+            raise
+        
+    def _initialize_components(self):
+        """
+        Initialize LangChain components.
+        """
+        # Embeddings
+        self.embeddings = OpenAIEmbeddings(
+            model=self.config.embedding_model,
+            dimensions=self.config.embedding_dimensions,
+            openai_api_key=os.environ.get("OPENAI_API_KEY")
+        )
+        
+        # Vector store
+        self.vector_store = PineconeVectorStore(
+            index_name=os.environ.get("INDEX_NAME"),
+            embedding=self.embeddings
+        )
+        
+        # LLM
+        llm_kwargs = {
+            "model": self.config.model,
+            "temperature": self.config.temperature,
+            "openai_api_key": os.environ.get("OPENAI_API_KEY")
+        }
+        if self.config.max_tokens:
+            llm_kwargs["max_tokens"] = self.config.max_tokens
+            
+        self.llm = ChatOpenAI(**llm_kwargs)
+        
+        # Components
+        self.classifier = QueryClassifier()
+        self.retriever = AdvancedRetriever(self.vector_store, self.config)
+        
+    async def ask(self, question: str) -> Dict[str, Any]:
+        """
+        Process question with comprehensive error handling and monitoring.
+        """
+        start_time = asyncio.get_event_loop().time()
+        self.stats['total'] += 1
+        
+        try:
+            # Input validation
+            if not question or not question.strip():
+                return {
+                    "response": "Please provide a valid question.",
+                    "error": "empty_query"
+                }
+                
+            # Classify query
+            context = self.classifier.classify(question)
+            self.stats['types'][context.query_type.value] += 1
+            
+            logger.info(f"Classified query as: {context.query_type.value}"
+                        f"(confidence: {context.confidence:.2f})")
+            
+            # Retrieve documents
+            docs = await self.retriever.retrieve(question, context)
+            
+            if not docs:
+                logger.warning(f"No documents retrieved!")
+                return {
+                    "response": "I couldn't find relevant information to answer your question. "
+                        "Please try rephrasing or asking about a different topic.",
+                    "query_type": context.query_type.value,
+                    "confidence": context.confidence,
+                    "sources": 0
+                }
+                
+            # Generate response
+            prompt = self._create_prompt(context.query_type)
+            context_text = self._format_context(docs)
+            history_text = self._format_history()
+            
+            full_prompt = f"""{prompt}
+            
+            Context: {context_text}
+            
+            History: {history_text}
+            
+            Question: {question}
+            
+            Response: """
+            
+            try:
+                response = self.llm.invoke([{"role": "user", "content": full_prompt}])
+                answer = response.content
+                
+            except Exception as e:
+                logger.error(f"LLM generation error: {e}")
+                return {
+                    "response": "I encountered an issue generating a response. Please try again.",
+                    "error": "generation_error",
+                    "query_type": context.query_type.value
+                }
+                
+            # Update history
+            self.chat_history.append((question, answer))
+            # Manage history
+            if len(self.chat_history) > 10:
+                self.chat_history = self.chat_history[-5:]
+                
+            # Calculate response time
+            response_time = asyncio.get_event_loop().time() - start_time
+            
+            return {
+                "response": answer,
+                "query_type": context.query_type.value,
+                "confidence": context.confidence,
+                "sources": len(docs),
+                "response_time": response_time,
+                "model_config": self.config.name
+            }
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in ask(): {e}")
+            return {
+                "response": "I encountered an unexpected issue. Please try again.",
+                "error": str(e),
+                "query_type": "unknown"
+            }
+                
