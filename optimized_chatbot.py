@@ -103,7 +103,7 @@ class AdvancedRetriever:
         self.config = config
         self.cache = {} # In-memory cache
         
-    async def retrieve(self, query: str, query_context: QueryContext) -> List[Document]
+    async def retrieve(self, query: str, query_context: QueryContext) -> List[Document]:
         """
         Retrieve documents with fallback strategies.
         """
@@ -133,4 +133,84 @@ class AdvancedRetriever:
             logger.error(f"Retrieval error: {e}")
             return await self._standard_retrieval(query, k) # Fallback to standard retrieval
         
-    
+    async def _definition_retrieval(self, query: str, k: int) -> List[Document]:
+        """
+        Enhanced definition-focused retrieval.
+        """
+        try:
+            docs = self.vector_store.similarity_search_with_score(query, k=k*2)
+            
+            definition_docs = []
+            standard_docs = []
+            
+            for doc, score in docs:
+                content_lower = doc.page_content.lower()
+                definition_indicators = [
+                    'definition', 'means', 'refers to', 'is a', 'is the',
+                    'defined as', 'can be described as', 'is when'
+                ]
+                
+                if any(indicator in content_lower for indicator in definition_indicators):
+                    doc.metadata['strategy'] = 'definition_focused'
+                    doc.metadata['relevance_score'] = score
+                    definition_docs.append(doc)
+                else:
+                    standard_docs.append((doc, score))
+                    
+            # Fill remaining slots with highest scoring standard docs
+            while len(definition_docs) < k and standard_docs:
+                doc, score = standard_docs.pop(0)
+                doc.metadata['stratedy'] = 'standard'
+                doc.metadata['relevance_score'] = score
+                definition_docs.append(doc)
+                
+            return definition_docs[:k]
+        
+        except Exception as e:
+            logger.error(f"Definition retrieval error: {e}")
+            return await self._standard_retrieval(query, k)
+        
+    async def _calculation_retrieval(self, query: str, k: int) -> List[Document]:
+        """
+        Enhanced calculation-focused retrieval.
+        """
+        try:
+            docs = self.vector_store.similarity_search_with_score(query, k=k*2)
+            
+            calc_docs = []
+            standard_docs = []
+            
+            for doc, score in docs:
+                content_lower = doc.page_content.lower()
+                calc_indicators = {
+                    'formula', 'calculate', '=', '%', 'example', 'step',
+                    'equation', 'method', 'how to', 'multiply', 'divide'
+                }
+                
+                calc_score = sum(1 for indicator in calc_indicators if indicator in content_lower)
+                
+                if calc_score >= 2:
+                    doc.metadata['strategy'] = 'calculation_focused'
+                    doc.metadata['relevance_score'] = score
+                    doc.metadata['calc_score'] = calc_score
+                    calc_docs.append(doc)
+                else:
+                    standard_docs.append((doc, score))
+                    
+            # Sort calc docs by calculation score
+            calc_docs.sort(key=lambda x: x.metadata.get('calc_score', 0), reverse=True)
+            
+            # Fill remaining slots
+            while len(calc_docs) < k and standard_docs:
+                doc, score = standard_docs.pop(0)
+                doc.metadata['strategy'] = 'standard'
+                doc.metadata['relevance_score'] = score
+                calc_docs.append(doc)
+                
+            return calc_docs[:k]
+        
+        except Exception as e:
+            logger.error(f"Calculation retrieval error: {e}")
+            return await self._standard_retrieval(query, k)
+        
+        
