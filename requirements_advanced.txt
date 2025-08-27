@@ -1,38 +1,21 @@
 # Core RAG Dependencies
-langchain>=0.1.0
-langchain-community>=0.0.20
-langchain-openai>=0.0.8
-langchain-pinecone>=0.0.3
-python-dotenv>=1.0.0
-openai>=1.0.0
-pinecone-client>=3.0.0
+langchain==0.1.0
+langchain-community==0.0.13
+langchain-openai==0.0.6
+langchain-pinecone==0.0.3
+python-dotenv==1.0.0
+openai==1.12.0
+pinecone-client==3.0.0
 
-# Text Processing
-langchain-text-splitters>=0.0.1
+# Evaluation Framework
+pandas==2.2.0
+numpy==1.26.3
 
-# Evaluation Framework Dependencies
-numpy>=1.24.0
-pandas>=2.0.0
-scipy>=1.11.0
+# Streamlit Dashboard
+streamlit==1.31.0
+plotly==5.18.0
 
-# Data Validation and Type Checking
-pydantic>=2.0.0
-
-# Async Support
-aiofiles>=23.0.0
-
-# Visualization and Reporting (optional but recommended)
-matplotlib>=3.7.0
-seaborn>=0.12.0
-plotly>=5.15.0
-
-# Testing and Quality Assurance
-pytest>=7.4.0
-pytest-asyncio>=0.21.0
-black>=23.0.0
-isort>=5.12.0
-flake8>=6.0.0
-
-# Development and Debugging
-ipython>=8.14.0
-jupyter>=1.0.0
+# Testing and Quality
+pytest==8.0.0
+black==24.1.0
+flake8==7.0.0
