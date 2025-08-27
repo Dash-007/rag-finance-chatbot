@@ -102,4 +102,53 @@ class ConfigManager:
         
     def save_configs(self):
         """
+        Save current configurations to file.
         """
+        with open(self.config_file, 'w') as f:
+            json.dump(self.configs, f, indent=2)
+            
+    def get_model_config(self, name: str) -> ModelConfig:
+        """
+        Get model configuration by name.
+        """
+        if name not in self.configs.get("models", {}):
+            raise ValueError(f"Model config '{name}' not found.")
+        
+        config_dict = self.configs["models"][name]
+        return ModelConfig(**config_dict)
+    
+    def get_evaluation_config(self) -> EvaluationConfig:
+        """
+        Get evaluation configuration.
+        """
+        config_dict = self.configs.get("evaluation", {})
+        return EvaluationConfig(**config_dict)
+    
+    def list_model_configs(self) -> list:
+        """
+        List available model configurations.
+        """
+        return list(self.configs.get("models", {}).keys())
+    
+    def add_model_config(self, config: ModelConfig):
+        """
+        Add new model configuration.
+        """
+        if "models" not in self.configs:
+            self.configs["model"] = {}
+            
+        self.configs["models"][config.name] = {
+            "name": config.name,
+            "model": config.model,
+            "temperature": config.temperature,
+            "embedding_model": config.embedding_model,
+            "embedding_dimensions": config.embedding_dimensions,
+            "retrieval_k": config.retrieval_k
+        }
+        self.save_configs()
+        
+    def get_environment_config(self) -> Dict[str, Any]:
+        """
+        Get environment configuration.
+        """
+        return self.configs.get("environment", {})
