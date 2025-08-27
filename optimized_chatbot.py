@@ -213,4 +213,66 @@ class AdvancedRetriever:
             logger.error(f"Calculation retrieval error: {e}")
             return await self._standard_retrieval(query, k)
         
+    async def _comparison_retrieval(self, query:str, k: int) -> List[Document]:
+        """
+        Enhanced comparison retrieval with term extraction.
+        """
+        try:
+            query_lower = query.lower()
+            terms = []
+            
+            delimiters = ['vs ', 'versus ', ' or ', 'between ', ' and ']
+            for delimiter in delimiters:
+                if delimiter in query_lower:
+                    parts = query_lower.split(delimiter, 1)
+                    if len(parts) == 2:
+                        terms = [part.strip() for part in parts]
+                        break
+                    
+            if not terms:
+                # Fallback: look for common comparison words
+                if any(word in query_lower for word in ['compare', 'difference', 'better']):
+                    terms = [query_lower]
+                else:
+                    return await self._standard_retrieval(query, k)
+                
+            all_docs = []
+            for term in terms[:2]:
+                try:
+                    docs = self.vector_store.similarity_search_with_score(term, k=k//2+1)
+                    for doc, score in docs:
+                        doc.metadata['strategy'] = 'comparative'
+                        doc.metadata['search_term'] = term
+                        doc.metadata['relevance_score'] = score
+                        all_docs.append(doc)
+                    
+                except Exception as e:
+                    logger.warning(f"Error searching for term '{term}': {e}")
+                    
+            # Remove duplicates and return top k
+            seen_content = set()
+            unique_docs = []
+            for doc in all_docs:
+                content_key = doc.page_content[:100]
+                if content_key not in seen_content:
+                    seen_content.add(content_key)
+                    unique_docs.append(doc)
+                    
+            return unique_docs[:k]
         
+        except Exception as e:
+            logger.error(f"Comparison retrieval error: {e}")
+            return await self._standard_retrieval(query, k)
+        
+    async def _standard_retrieval(self, query: str, k: int) -> List[Document]:
+        """
+        Fallback standard retrieval.
+        """
+        try:
+            docs = self.vector_store.similarity_search(query, k=k)
+            for doc in docs:
+                doc.metadata['strategy'] = 'standard'
+            return docs
+        except Exception as e:
+            logger.error(f"Standard retrieval error: {e}")
+            return []
