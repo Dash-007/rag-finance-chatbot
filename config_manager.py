@@ -92,11 +92,6 @@ class ConfigManager:
                 "save_response": True,
                 "include_metadata": True,
                 "timeout_seconds": 30
-            },
-            "environment": {
-                "openai_api_key": os.environ.get("OPENAI_API_KEY"),
-                "pinecone_api_key": os.environ.get("PINECONE_API_KEY"),
-                "index_name": os.environ.get("INDEX_NAME")
             }
         }
         
@@ -146,9 +141,3 @@ class ConfigManager:
             "retrieval_k": config.retrieval_k
         }
         self.save_configs()
-        
-    def get_environment_config(self) -> Dict[str, Any]:
-        """
-        Get environment configuration.
-        """
-        return self.configs.get("environment", {})
