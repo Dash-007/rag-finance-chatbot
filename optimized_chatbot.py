@@ -71,19 +71,19 @@ class QueryClassifier:
             keywords = pattern_data["keywords"]
             weight = pattern_data["weight"]
             
-        # Exact phrase matching
-        for keyword in keywords:
-            if keyword in query_lower:
-                score += 0.4 * weight
-                
-        # Word matching
-        query_words = query_lower.split()
-        for keyword in keyword:
-            keyword_words = keyword.split()
-            if any(word in query_words for word in keyword_words):
-                score += 0.2 * weight
-                
-        scores[query_type] = min(score, 1.0)
+            # Exact phrase matching
+            for keyword in keywords:
+                if keyword in query_lower:
+                    score += 0.4 * weight
+                    
+            # Word matching
+            query_words = query_lower.split()
+            for keyword in keyword:
+                keyword_words = keyword.split()
+                if any(word in query_words for word in keyword_words):
+                    score += 0.2 * weight
+                    
+            scores[query_type] = min(score, 1.0)
         
         # Default general score
         scores[QueryType.GENERAL] = 0.3
@@ -276,3 +276,259 @@ class AdvancedRetriever:
         except Exception as e:
             logger.error(f"Standard retrieval error: {e}")
             return []
+        
+class OptimizedRAGChatbot:
+    """
+    Production-ready RAG chatbot with configuration management and monitoring.
+    """
+    
+    def __init__(self, config_name: str = "baseline"):
+        self.config_manager = ConfigManager()
+        self.config = self.config_manager.get_model_config(config_name)
+        self.chat_history = []
+        self.stats = {'total': 0, 'types': {qt.value: 0 for qt in QueryType}}
+        
+        # Initialize components with error handling
+        try:
+            self._initialize_components()
+            logger.info(f"Initialized chatbot with config: {config_name}")
+        
+        except Exception as e:
+            logger.error(f"Failed to initialize chatbot: {e}")
+            raise
+        
+    def _initialize_components(self):
+        """
+        Initialize LangChain components.
+        """
+        # Embeddings
+        self.embeddings = OpenAIEmbeddings(
+            model=self.config.embedding_model,
+            dimensions=self.config.embedding_dimensions,
+            openai_api_key=os.environ.get("OPENAI_API_KEY")
+        )
+        
+        # Vector store
+        self.vector_store = PineconeVectorStore(
+            index_name=os.environ.get("INDEX_NAME"),
+            embedding=self.embeddings
+        )
+        
+        # LLM
+        llm_kwargs = {
+            "model": self.config.model,
+            "temperature": self.config.temperature,
+            "openai_api_key": os.environ.get("OPENAI_API_KEY")
+        }
+        if self.config.max_tokens:
+            llm_kwargs["max_tokens"] = self.config.max_tokens
+            
+        self.llm = ChatOpenAI(**llm_kwargs)
+        
+        # Components
+        self.classifier = QueryClassifier()
+        self.retriever = AdvancedRetriever(self.vector_store, self.config)
+        
+    async def ask(self, question: str) -> Dict[str, Any]:
+        """
+        Process question with comprehensive error handling and monitoring.
+        """
+        start_time = asyncio.get_event_loop().time()
+        self.stats['total'] += 1
+        
+        try:
+            # Input validation
+            if not question or not question.strip():
+                return {
+                    "response": "Please provide a valid question.",
+                    "error": "empty_query"
+                }
+                
+            # Classify query
+            context = self.classifier.classify(question)
+            self.stats['types'][context.query_type.value] += 1
+            
+            logger.info(f"Classified query as: {context.query_type.value}"
+                        f"(confidence: {context.confidence:.2f})")
+            
+            # Retrieve documents
+            docs = await self.retriever.retrieve(question, context)
+            
+            if not docs:
+                logger.warning(f"No documents retrieved!")
+                return {
+                    "response": "I couldn't find relevant information to answer your question. "
+                        "Please try rephrasing or asking about a different topic.",
+                    "query_type": context.query_type.value,
+                    "confidence": context.confidence,
+                    "sources": 0
+                }
+                
+            # Generate response
+            prompt = self._create_prompt(context.query_type)
+            context_text = self._format_context(docs)
+            history_text = self._format_history()
+            
+            full_prompt = f"""{prompt}
+            
+            Context: {context_text}
+            
+            History: {history_text}
+            
+            Question: {question}
+            
+            Response: """
+            
+            try:
+                response = self.llm.invoke([{"role": "user", "content": full_prompt}])
+                answer = response.content
+                
+            except Exception as e:
+                logger.error(f"LLM generation error: {e}")
+                return {
+                    "response": "I encountered an issue generating a response. Please try again.",
+                    "error": "generation_error",
+                    "query_type": context.query_type.value
+                }
+                
+            # Update history
+            self.chat_history.append((question, answer))
+            # Manage history
+            if len(self.chat_history) > 10:
+                self.chat_history = self.chat_history[-5:]
+                
+            # Calculate response time
+            response_time = asyncio.get_event_loop().time() - start_time
+            
+            return {
+                "response": answer,
+                "query_type": context.query_type.value,
+                "confidence": context.confidence,
+                "sources": len(docs),
+                "response_time": response_time,
+                "model_config": self.config.name
+            }
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in ask(): {e}")
+            return {
+                "response": "I encountered an unexpected issue. Please try again.",
+                "error": str(e),
+                "query_type": "unknown"
+            }
+            
+    def _create_prompt(self, query_type: QueryType) -> str:
+        """
+        Create specialized prompts with better instructions.
+        """
+        base = ("You are a knowledgeable financial assistant. "
+                "Provide accurate, helpful, and well-structured responses based on the context provided.")
+        
+        prompts = {
+            QueryType.DEFINITION: f"{base} Focus on clear, comprehensive definitions with practical examples.",
+            QueryType.CALCULATION: f"{base} Provide step-by-step calculations with formulas and worked examples.",
+            QueryType.ADVICE: f"{base} Give balanced, practical advice. Always recommend consulting with financial professionals for personalized advice.",
+            QueryType.COMPARISON: f"{base} Compare options objectively, highlighting key differences, pros, and cons.",
+            QueryType.GENERAL: f"{base} Provide comprehensive, well-organized financial guidance."
+        }
+        
+        return prompts.get(query_type, prompts[QueryType.GENERAL])
+            
+    def _format_context(self, docs: List[Document]) -> str:
+        """
+        Format retrieved documents with metadata.
+        """
+        if not docs:
+            return "No relevant context found."
+        
+        formatted_parts = []
+        for i, doc in enumerate(docs, 1):
+            strategy = doc.metadata.get('strategy', 'unknown')
+            content = doc.page_content[:500]
+            formatted_parts.append(f"[Source {i} - {strategy}]: {content}")
+            
+        return "\n\n".join(formatted_parts)
+    
+    def _format_history(self) -> str:
+        """
+        Format conversation history efficiently.
+        """
+        if not self.chat_history:
+            return "No previous conversation."
+        
+        # Only include last 2 exchanges to manage prompt length
+        recent = self.chat_history[-2:]
+        history_parts = []
+        for q, a in recent:
+            # Truncate long responses
+            truncated_a = a[:200] + "..." if len(a) > 200 else a
+            history_parts.append(f"Q: {q}\nA: {truncated_a}")
+            
+        return "\n".join(history_parts)
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        Get comprehensive session statistics.
+        """
+        return {
+            'total_queries': self.stats['total'],
+            'query_types': self.stats['types'].copy(),
+            'model_config': self.config.name,
+            'history_length': len(self.chat_history),
+            'cache_size': len(self.retriever.cache)
+        }
+        
+    def clear_history(self):
+        """
+        Clear conversation history and cache.
+        """
+        self.chat_history = []
+        self.retriever.cache = {}
+        logger.info(f"Cleared history and cache")
+        
+    def get_config_name(self):
+        """
+        Get current configuration name.
+        """
+        return self.config.name
+    
+# Factory function for easy installation
+def create_chatbot(config_name: str = "baseline") -> OptimizedRAGChatbot:
+    """
+    Factory function to create a chatbot with specified configuration.
+    
+    Args:
+        config_name: Name of the configuration to use
+        
+    Returns:
+        Configured OptimizedRAGChatbot instance
+    """
+    return OptimizedRAGChatbot(config_name)
+
+# Main execution functions for testing
+async def demo():
+    """
+    Quick demo of the optimized system.
+    """
+    print("🚀 Optimized RAG Chatbot Demo\n")
+    
+    bot = create_chatbot("baseline")
+    
+    queries = [
+        "What is compound interest?",
+        "How do I calculate ROI on investment?", 
+        "Should I invest in stocks or bonds?",
+        "What's the difference between 401k and IRA?"
+    ]
+    
+    for query in queries:
+        print(f"Query: {query}")
+        result = await bot.ask(query)
+        print(f"Response: {result['response'][:100]}...")
+        print(f"Type: {result.get('query_type', 'unknown')}, "
+              f"Confidence: {result.get('confidence', 0):.2f}, "
+              f"Time: {result.get('response_time', 0):.2f}s\n")
+        print("-" * 50)
+        
+if __name__ == "__main__":
+    asyncio.run(demo())
