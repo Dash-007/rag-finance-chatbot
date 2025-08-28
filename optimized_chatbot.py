@@ -492,4 +492,17 @@ class OptimizedRAGChatbot:
         """
         return self.config.name
     
+# Factory function for easy installation
+def create_chatbot(config_name: str = "baseline") -> OptimizedRAGChatbot:
+    """
+    Factory function to create a chatbot with specified configuration.
+    
+    Args:
+        config_name: Name of the configuration to use
+        
+    Returns:
+        Configured OptimizedRAGChatbot instance
+    """
+    return OptimizedRAGChatbot(config_name)
+    
     
