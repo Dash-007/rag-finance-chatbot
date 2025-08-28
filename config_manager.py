@@ -55,7 +55,7 @@ class ConfigManager:
         self.configs = {
             "models": {
                 "baseline": {
-                    "name": "baseling",
+                    "name": "baseline",
                     "model": "gpt-4",
                     "temperature": 0.7,
                     "embedding_model": "text-embedding-3-small",

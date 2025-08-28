@@ -71,19 +71,19 @@ class QueryClassifier:
             keywords = pattern_data["keywords"]
             weight = pattern_data["weight"]
             
-        # Exact phrase matching
-        for keyword in keywords:
-            if keyword in query_lower:
-                score += 0.4 * weight
-                
-        # Word matching
-        query_words = query_lower.split()
-        for keyword in keyword:
-            keyword_words = keyword.split()
-            if any(word in query_words for word in keyword_words):
-                score += 0.2 * weight
-                
-        scores[query_type] = min(score, 1.0)
+            # Exact phrase matching
+            for keyword in keywords:
+                if keyword in query_lower:
+                    score += 0.4 * weight
+                    
+            # Word matching
+            query_words = query_lower.split()
+            for keyword in keyword:
+                keyword_words = keyword.split()
+                if any(word in query_words for word in keyword_words):
+                    score += 0.2 * weight
+                    
+            scores[query_type] = min(score, 1.0)
         
         # Default general score
         scores[QueryType.GENERAL] = 0.3
