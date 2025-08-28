@@ -504,5 +504,31 @@ def create_chatbot(config_name: str = "baseline") -> OptimizedRAGChatbot:
         Configured OptimizedRAGChatbot instance
     """
     return OptimizedRAGChatbot(config_name)
+
+# Main execution functions for testing
+async def demo():
+    """
+    Quick demo of the optimized system.
+    """
+    print("🚀 Optimized RAG Chatbot Demo\n")
     
+    bot = create_chatbot("baseline")
     
+    queries = [
+        "What is compound interest?",
+        "How do I calculate ROI on investment?", 
+        "Should I invest in stocks or bonds?",
+        "What's the difference between 401k and IRA?"
+    ]
+    
+    for query in queries:
+        print(f"Query: {query}")
+        result = await bot.ask(query)
+        print(f"Response: {result['response'][:100]}...")
+        print(f"Type: {result.get('query_type', 'unknown')}, "
+              f"Confidence: {result.get('confidence', 0):.2f}, "
+              f"Time: {result.get('response_time', 0):.2f}s\n")
+        print("-" * 50)
+        
+if __name__ == "__main__":
+    asyncio.run(demo())
