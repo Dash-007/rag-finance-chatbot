@@ -416,4 +416,80 @@ class OptimizedRAGChatbot:
                 "error": str(e),
                 "query_type": "unknown"
             }
-                
+            
+    def _create_prompt(self, query_type: QueryType) -> str:
+        """
+        Create specialized prompts with better instructions.
+        """
+        base = ("You are a knowledgeable financial assistant. "
+                "Provide accurate, helpful, and well-structured responses based on the context provided.")
+        
+        prompts = {
+            QueryType.DEFINITION: f"{base} Focus on clear, comprehensive definitions with practical examples.",
+            QueryType.CALCULATION: f"{base} Provide step-by-step calculations with formulas and worked examples.",
+            QueryType.ADVICE: f"{base} Give balanced, practical advice. Always recommend consulting with financial professionals for personalized advice.",
+            QueryType.COMPARISON: f"{base} Compare options objectively, highlighting key differences, pros, and cons.",
+            QueryType.GENERAL: f"{base} Provide comprehensive, well-organized financial guidance."
+        }
+        
+        return prompts.get(query_type, prompts[QueryType.GENERAL])
+            
+    def _format_context(self, docs: List[Document]) -> str:
+        """
+        Format retrieved documents with metadata.
+        """
+        if not docs:
+            return "No relevant context found."
+        
+        formatted_parts = []
+        for i, doc in enumerate(docs, 1):
+            strategy = doc.metadata.get('strategy', 'unknown')
+            content = doc.page_content[:500]
+            formatted_parts.append(f"[Source {i} - {strategy}]: {content}")
+            
+        return "\n\n".join(formatted_parts)
+    
+    def _format_history(self) -> str:
+        """
+        Format conversation history efficiently.
+        """
+        if not self.chat_history:
+            return "No previous conversation."
+        
+        # Only include last 2 exchanges to manage prompt length
+        recent = self.chat_history[-2:]
+        history_parts = []
+        for q, a in recent:
+            # Truncate long responses
+            truncated_a = a[:200] + "..." if len(a) > 200 else a
+            history_parts.append(f"Q: {q}\nA: {truncated_a}")
+            
+        return "\n".join(history_parts)
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        Get comprehensive session statistics.
+        """
+        return {
+            'total_queries': self.stats['total'],
+            'query_types': self.stats['types'].copy(),
+            'model_config': self.config.name,
+            'history_length': len(self.chat_history),
+            'cache_size': len(self.retriever.cache)
+        }
+        
+    def clear_history(self):
+        """
+        Clear conversation history and cache.
+        """
+        self.chat_history = []
+        self.retriever.cache = {}
+        logger.info(f"Cleared history and cache")
+        
+    def get_config_name(self):
+        """
+        Get current configuration name.
+        """
+        return self.config.name
+    
+    
