@@ -51,3 +51,31 @@ def initialize_components():
     except Exception as e:
         st.error(f"Failed to initialize components: str{e}")
         return None, None, None
+    
+def main():
+    # Initialize components
+    chatbot, evaluator, ab_manager = initialize_components()
+    
+    if not all([chatbot, evaluator, ab_manager]):
+        st.error("Please check your environment variables and try again.")
+        return
+    
+    # Sidebar
+    st.sidebar.title("🤖 RAG Finance Chatbot")
+    st.sidebar.markdown("---")
+    
+    #Navigation
+    page = st.sidebar.selectbox(
+        "Navigate to:",
+        ["💬 Chat Interface", "📊 Performance Metrics", "🧪 A/B Testing", "📈 Analytics"]
+    )
+    
+    if page == "💬 Chat Interface":
+        chat_interface(chatbot)
+    elif page == "📊 Performance Metrics":
+        chat_interface(evaluator)
+    elif page == "🧪 A/B Testing":
+        ab_testing_interface(ab_manager, chatbot)
+    elif page == "📈 Analytics":
+        analytics_dashboard(evaluator)
+        
