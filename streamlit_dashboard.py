@@ -98,7 +98,7 @@ def chat_interface(chatbot):
             st.markdown(message["content"])
             if message["role"] == "assistant" and "metadata" in message:
                 with st.expander("Response Details"):
-                    col1, col3, col3 = st.columns(3)
+                    col1, col2, col3 = st.columns(3)
                     with col1:
                         st.metric("Query Type", message["metadata"].get("query_type", "N/A"))
                     with col2:
@@ -134,3 +134,13 @@ def chat_interface(chatbot):
                         "sources": response.get("sources", 0)
                     }
                 })
+                
+    # Session statistics
+    if st.session_state.stats["total"] > 0:
+        st.sidebar.markdown("### Session Stats")
+        st.sidebar.metric("Total Queries", st.session_state.stats["total"])
+        
+        if st.session_state.stats["types"]:
+            st.sidebar.markdown("**Query Types:**")
+            for qtype, count in st.session_state.stats["types"].items():
+                st.sidebar.text(f"{qtype}: {count}")
