@@ -79,3 +79,58 @@ def main():
     elif page == "📈 Analytics":
         analytics_dashboard(evaluator)
         
+def chat_interface(chatbot):
+    """
+    Interactive chat interface.
+    """
+    st.title("💬 Finance Chatbot")
+    st.markdown("Ask me anything about finance!")
+    
+    # Initialize session state
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "stats" not in st.session_state:
+        st.session_state.stats = {"total": 0, "types": {}}
+        
+    # Display chat messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+            if message["role"] == "assistant" and "metadata" in message:
+                with st.expander("Response Details"):
+                    col1, col3, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Query Type", message["metadata"].get("query_type", "N/A"))
+                    with col2:
+                        st.metric("Confidence", f"{message['metadata'].get('confidence', 0):.2f}")
+                    with col3:
+                        st.metric("Sources", message["metadata"].get("sources", 0))
+                        
+    # Chat input
+    if prompt := st.chat_input("Ask a finance question..."):
+        # Display user manage
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        # Generate response
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                response = asyncio.run(chatbot.ask(prompt))
+                st.markdown(response["response"])
+                
+                # Update session stats
+                st.session_state.stats["total"] += 1
+                query_type = response.get("query_type", "unknown")
+                st.session_state.stats["types"][query_type] = st.session_state.stats["types"].get(query_type, 0) + 1
+                
+                # Store message with metadata
+                st.session_state.message.append({
+                    "role": "assistant",
+                    "content": response["response"],
+                    "metadata": {
+                        "query_type": query_type,
+                        "confidence": response.get("confidence", 0),
+                        "sources": response.get("sources", 0)
+                    }
+                })
