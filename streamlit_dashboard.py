@@ -271,3 +271,56 @@ def display_evaluation_results(results):
         )
         st.plotly_chart(fig, use_container_width=True)
         
+def ab_testing_interface(ab_manager, base_chatbot):
+    """
+    A/B testing interface.
+    """
+    st.title("🧪 A/B Testing")
+    st.markdown("Compare different model configurations")
+    
+    # Test configuration
+    with st.expander("🔧 Configure A/B Test", expanded=True):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            test_name = st.text_input("Test Name", value="temperature_comparison")
+            model_a_name = st.text_input("Model A Name", value="baseline")
+            
+        with col2:
+            model_b_name = st.text_input("Model B Name", value="variant")
+            
+        # Model B configuration
+        st.markdown("**Model B Condiguration (Variant):**")
+        col3, col4 = st.columns(2)
+        with col3:
+            temp_b = st.slider("Temperature", 0.0, 0.1, 0.3, 0.5, 1.0)
+        with col4:
+            model_b = st.selectbox("Model", ["gpt-4", "gpt-3.5-turbo"], index=0)
+            
+    # Run test
+    if st.button("🚀 Run A/B Test", type="primary"):
+        with st.spinner("Running A/B test... This may take a few minutes."):
+            try:
+                # Create variant chatbot
+                variant_chatbot = OptimizedRAGChatbot(model=model_b, temperature=temp_b)
+                
+                # Run comparison
+                results = asyncio.run(ab_manager.run_ab_test(
+                    base_chatbot,
+                    variant_chatbot,
+                    test_name,
+                    model_a_name,
+                    model_b_name
+                ))
+                
+                st.session_state.ab_results = results
+                st.success("A/B test completed!")
+                
+            except Exception as e:
+                st.error(f"Error running A/B test: {str(e)}")
+                
+    # Display results
+    if "ab_results" in st.session_state:
+        st.markdown("---")
+        display_ab_results(st.session_state.ab_results)
+        
