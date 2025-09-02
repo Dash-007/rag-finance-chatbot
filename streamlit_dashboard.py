@@ -324,3 +324,59 @@ def ab_testing_interface(ab_manager, base_chatbot):
         st.markdown("---")
         display_ab_results(st.session_state.ab_results)
         
+def display_ab_results(results):
+    """
+    Display A/B test results.
+    """
+    st.markdown("📊 A/B Test Results")
+    
+    # Winner announcement
+    winner = results["winner"]
+    if winner != "tie":
+        st.success(f"🏆 Winner: **{winner}**")
+    else:
+        st.info("🤝 Result: **Tie**")
+        
+    # Comparison metrics
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"### {results['model_a']['name']} (Baseline)")
+        metrics_a = results['model_a']['metrics']
+        for metric, value in metrics_a.items():
+            st.metric(metric.replace('_', ' ').title(), f"{value:.3f}")
+        st.metric("Avg Response Time", f"{results['model_a']['avg_response_time']:.2f}s")
+        
+    with col2:
+        st.markdown(f"### {results['model_b']['name']} (Variant)")
+        metrics_b = results['model_b']['metrics']
+        for metric, value in metrics_b.items():
+            if metric in results['imporovements']:
+                delta = results['improvements'][metric]['absolute_diff']
+                st.metric(
+                    metric.replace('-', ' ').title(),
+                    f"{value:.3f}",
+                    delta=f"{delta:+.3f}"
+                )
+            else:
+                st.metric(metric.replace('-', ' ').title(), f"{value:.3f}")
+                
+        time_diff = results['model_b']['avg_response_time'] - results['model_a']['avg_response_time']
+        st.metric(
+            "Avg Response Time",
+            f"{results['model_b']['avg_response_time']:.2f}s",
+            delta=f"{time_diff:+.2f}s"
+        )
+        
+        # Improvements summary
+        st.markdown("### 📈 Performance Changes")
+        improvements_df = pd.DataFrame([
+            {
+                "Metric": metric.replace('-', ' ').title(),
+                "Absolute Change": f"{data['absolute_diff']:+.3f}",
+                "Percent Change": f"{data['percent_change']:+.1f}%"
+            }
+            for metric, data in results['improvements'].items()
+        ])
+        
+        st.dataframe(improvements_df, use_container_width=True)
