@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from optimized_chatbot import OptimizedRAGChatbot, QueryType
+from config_manager import ConfigManager, ModelConfig
 from evaluation_framework import RAGEvaluator, ABTestManager, EvaluationMetric
 
 # Page config
@@ -301,8 +302,21 @@ def ab_testing_interface(ab_manager, base_chatbot):
     if st.button("🚀 Run A/B Test", type="primary"):
         with st.spinner("Running A/B test... This may take a few minutes."):
             try:
-                # Create variant chatbot
-                variant_chatbot = OptimizedRAGChatbot(model=model_b, temperature=temp_b)
+                # Create temporary variant chatbot
+                config_manager = ConfigManager()
+                
+                variant_config = ModelConfig(
+                    name="streamlit_variant",
+                    model=model_b,
+                    temperature=temp_b,
+                    embedding_model="text-embedding-3-small",
+                    embedding_dimensions=512,
+                    retrieval_k=4
+                )
+                
+                config_manager.add_model_config(variant_config)
+                
+                variant_chatbot = OptimizedRAGChatbot("streamlit_variant")
                 
                 # Run comparison
                 results = asyncio.run(ab_manager.run_ab_test(
