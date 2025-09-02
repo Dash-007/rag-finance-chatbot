@@ -164,18 +164,110 @@ def performance_metrics(evaluator):
                 st.success(f"Evaluation complete! Results saved to {filename}")
                 st.session_state.latest_results = results
                 
-        with col2:
-            st.markdown("### Test Queries Preview")
-            test_queries_df = pd.DataFrame([
-                {
-                    "Query": tq.query,
-                    "Type": tq.query_type,
-                    "Difficulty": tq.difficulty
-                } for tq in evaluator.test_queries
-            ])
-            st.dataframe(test_queries_df, use_container_width=True)
+    with col2:
+        st.markdown("### Test Queries Preview")
+        test_queries_df = pd.DataFrame([
+            {
+                "Query": tq.query,
+                "Type": tq.query_type,
+                "Difficulty": tq.difficulty
+            } for tq in evaluator.test_queries
+        ])
+        st.dataframe(test_queries_df, use_container_width=True)
+        
+    # Display results if available
+    if "latest_results" in st.session_state:
+        st.markdown("---")
+        display_evaluation_results(st.session_state.latest_results)
             
-        # Display results if available
-        if "latest_results" in st.session_state:
-            st.markdown("---")
-            display_evaluation_results(st.session_state.latest_results)
+def display_evaluation_results(results):
+    """
+    Display evaluation results with visualizations.
+    """
+    st.markdown("### 📈 Latest Evaluation Results")
+    
+    # Aggregate metrics
+    avg_metrics = {}
+    for metric in EvaluationMetric:
+        metric_values = [r.metrics.get(metric.value, 0) for r in results]
+        avg_metrics[metric.value] = sum(metric_values) / len(metric_values) if metric_values else 0
+        
+    # Metrics overview
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "Relevance",
+            f"{avg_metrics['relevance']:.2f}",
+            delta=None
+        )
+        
+    with col2:
+        st.metric(
+            "Completeness",
+            f"{avg_metrics['completeness']:.2f}",
+            delta=None
+        )
+        
+    with col3:
+        avg_time = sum(r.response_time for r in results) / len(results)
+        st.metric(
+            "Avg Response Time",
+            f"{avg_time:.2f}s",
+            delta=None
+        )
+        
+    with col4:
+        avg_sources = sum(r.sources_used for r in results) / len(results)
+        st.metric(
+            "Avg Sources",
+            f"{avg_sources:.1f}",
+            delta=None
+        )
+        
+    # Detailed results table
+    st.markdown(" ### 📋 Detailed Results")
+    results_df = pd.DataFrame([
+        {
+            "Query": r.query[:50] + "..." if len(r.query) > 50 else r.query,
+            "Type": r.query_type,
+            "Response Time": f"{r.response_time:.2f}s",
+            "Relevance": f"{r.metrics.get('relevelace', 0):.2f}",
+            "Completeness": f"{r.metrics.get('completeness', 0):.2f}",
+            "Sources": r.sources_used
+        } for r in results
+    ])
+    st.dataframe(results_df, use_container_width=True)
+    
+    # Visualization
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Metrics by query type
+        type_metrics = {}
+        for result in results:
+            qtype = result.query_type
+            if qtype not in type_metrics:
+                type_metrics[qtype] = []
+            type_metrics[qtype].append(result.metrics.get('relevance', 0))
+            
+        type_avg = {qtype: sum(metrics)/len(metrics) for qtype, metrics in type_metrics.items()}
+        
+        fig = px.bar(
+            x=list(type_avg.keys()),
+            y=list(type_avg.values()),
+            title="Average Relevance by Query Type",
+            labels={"x": "Query Type", "y": "Relevance Score"}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+    with col2:
+        # Response time distribution
+        times = [r.response_time for r in results]
+        fig = px.histogram(
+            times,
+            title="Response Time Distribution",
+            labels={"values": "Response Times (s)", "count": "Frequency"}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
