@@ -144,3 +144,38 @@ def chat_interface(chatbot):
             st.sidebar.markdown("**Query Types:**")
             for qtype, count in st.session_state.stats["types"].items():
                 st.sidebar.text(f"{qtype}: {count}")
+                
+def performance_metrics(evaluator):
+    """
+    Performance evaluation interface.
+    """
+    st.title("📊 Performance Metrics")
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown("### Evaluation Controls")
+        
+        if st.button("🚀 Run Evaluation", type="primary"):
+            with st.spinner("Running evaluation..."):
+                chatbot = OptimizedRAGChatbot()
+                results = asyncio.run(evaluator.evaluate_model(chatbot, "current"))
+                filename = evaluator.save_results(results)
+                st.success(f"Evaluation complete! Results saved to {filename}")
+                st.session_state.latest_results = results
+                
+        with col2:
+            st.markdown("### Test Queries Preview")
+            test_queries_df = pd.DataFrame([
+                {
+                    "Query": tq.query,
+                    "Type": tq.query_type,
+                    "Difficulty": tq.difficulty
+                } for tq in evaluator.test_queries
+            ])
+            st.dataframe(test_queries_df, use_container_width=True)
+            
+        # Display results if available
+        if "latest_results" in st.session_state:
+            st.markdown("---")
+            display_evaluation_results(st.session_state.latest_results)
