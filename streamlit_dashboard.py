@@ -328,7 +328,7 @@ def display_ab_results(results):
     """
     Display A/B test results.
     """
-    st.markdown("📊 A/B Test Results")
+    st.markdown("### 📊 A/B Test Results")
     
     # Winner announcement
     winner = results["winner"]
@@ -375,8 +375,88 @@ def display_ab_results(results):
                 "Metric": metric.replace('-', ' ').title(),
                 "Absolute Change": f"{data['absolute_diff']:+.3f}",
                 "Percent Change": f"{data['percent_change']:+.1f}%"
-            }
-            for metric, data in results['improvements'].items()
+            } for metric, data in results['improvements'].items()
         ])
         
         st.dataframe(improvements_df, use_container_width=True)
+        
+def analytics_dashboard(evaluator):
+    """
+    Analytics and insights dashboard.
+    """
+    st.title("📈 Analytics Dashboard")
+    
+    # Load historical results
+    results_dir = Path(evaluator.results_dir)
+    result_files = list(results_dir.glob("*.json"))
+    
+    if not result_files:
+        st.info("No evaluation results found. Run some evaluations first!")
+        
+    # File selector
+    selected_file = st.selectbox(
+        "Select Results File:",
+        [f.name for f in result_files],
+        index=0
+    )
+    
+    if selected_file:
+        results = evaluator.load_results(selected_file)
+        
+        # Overview metrics
+        st.markdown("### 📊 Overview")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Queries", len(results))
+            
+        with col2:
+            avg_time = sum(r.response_time for r in results) / len(results)
+            st.metric("Avg Response Time", f"{avg_time:.2f}s")
+            
+        with col3:
+            query_types = len(set(r.query_type for r in results))
+            st.metric("Query Types", query_types)
+            
+        with col4:
+            avg_relevance = sum(r.metrics.get('relevance', 0) for r in results)
+            st.metric("Avg Relevance", f"{avg_relevance:.2f}")
+            
+        # Time series analysis
+        st.markdown("### 📈 Performance Over Time")
+        
+        # Create time series data
+        df = pd.DataFrame([
+            {
+                "timestamp": r.timestamp,
+                "response_time": r.response_time,
+                "relevance": r.metrics.get('relevance', 0),
+                "query_type": r.query_type
+            } for r in results
+        ])
+        
+        # Performance trends
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            fig = px.scatter(
+                df,
+                x="timestamp",
+                y="response_time",
+                color="query_type",
+                title="Response Time Trends"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+        with col2:
+            fig = px.scatter(
+                df,
+                x="timestamp",
+                y="relevance",
+                color="query_type",
+                title="Relevance Score Trends"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+if __name__ == "__main__":
+    main()
