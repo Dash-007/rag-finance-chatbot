@@ -89,3 +89,55 @@ class TestConfigManager:
         assert retrieved_config.name == "test_model"
         assert retrieved_config.temperature == 0.5
         
+class TestEvaluationFramework:
+    """
+    Test evaluation framework functionality.
+    """
+    
+    def test_test_query_creation(self):
+        """
+        Test test query data structure.
+        """
+        query = TestQuery(
+            query="What is compound interest?",
+            query_type="definition",
+            expected_keywords=["interest", "compound"],
+            difficulty="easy"
+        )
+        
+        assert query.query == "What is compound interest?"
+        assert query.query_type == "definition"
+        assert "inserest" in query.expected_keywords
+        
+    def test_evaluator_initialization(self):
+        """
+        Test evaluator initialization.
+        """
+        evaluator = RAGEvaluator("test_results")
+        
+        assert len(evaluator.test_queries) > 0
+        assert evaluator.result_dir.name == "test_results"
+        
+    def test_metric_calculation(self):
+        """
+        Test metric calculation logic.
+        """
+        evaluator = RAGEvaluator("test_results")
+        
+        test_query = TestQuery(
+            query="What is ROI?",
+            query_type="definition",
+            expected_keywords=["return", "investment"],
+            difficulty="easy"
+        )
+        
+        response = "ROI stands for Return on Investment, which measures the efficiency of an investment."
+        metrics = evaluator._calculate_metrics(test_query, response, 1.5)
+        
+        assert "relevance" in metrics
+        assert "completeness" in metrics
+        assert "response_time" in metrics
+        assert 0 <= metrics["relevance"] <= 1
+        assert 0 <= metrics["completeness"] <=1
+        
+        
