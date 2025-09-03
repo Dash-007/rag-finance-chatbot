@@ -190,3 +190,60 @@ class TestOptimizedChatbot:
             stats = bot.get_stats()
             assert stats['total_queries'] == 1
             assert stats['model_config'] == "baseline"
+            
+class TestABTesting:
+    """
+    Test A/B testing functionality.
+    """
+    
+    def test_ab_manager_initialization(self):
+        """
+        Test A/B test manager initialization.
+        """
+        evaluator = RAGEvaluator("test_results")
+        ab_manager = ABTestManager(evaluator)
+        
+        metrics_a = {"relevance": 0.7, "completeness": 0.6}
+        metrics_b = {"relevance": 0.8, "completeness": 0.7}
+        
+        winner = ab_manager._determine_winner(metrics_a, metrics_b, "model_a", "model_b")
+        assert winner == "model_b"
+        
+# Integration Tests
+@pytest.mark.asyncio
+class TestIntegration:
+    """
+    Integration tests for the complete system.
+    """
+    
+    async def test_end_to_end_query_processing(self):
+        """
+        Test complete query processing pipeline.
+        """
+        # Will require actual API keys and vector store
+        # Use mock responses
+        pass
+    
+    async def test_evaluation_pipeline(self):
+        """
+        Test evaluation pipeline with mocked components.
+        """
+        with patch('optimized_chatbot.OpenAIEmbeddings'), \
+             patch('optimized_chatbot.PineconeVectorStore'), \
+             patch('optimized_chatbot.ChatOpenAI'):
+            
+            # Mock chatbot responses
+            mock_chatbot = Mock()
+            mock_chatbot.ask = AsyncMock(return_value={
+                "response": "Test response",
+                "query_type": "definition",
+                "confidence": 0.8,
+                "sources": 3,
+                "response_time": 1.2
+            })
+            
+            evaluator = RAGEvaluator("test_results")
+            results = await evaluator.evaluate_model(mock_chatbot, "test_version")
+            
+            assert len(results) == len(evaluator.test_queries)
+            assert all(result.model_version == "test_version" for result in results)
