@@ -247,3 +247,42 @@ class TestIntegration:
             
             assert len(results) == len(evaluator.test_queries)
             assert all(result.model_version == "test_version" for result in results)
+            
+# Fixtures for common test data
+@pytest.fixture
+def sample_test_queries():
+    """
+    Sample test queries for testing.
+    """
+    return [
+        TestQuery(
+            queryquery="What is compound interest?",
+            query_type="definition",
+            expected_keywords=["interest", "compound", "principal"],
+            difficulty="easy"
+        ),
+        TestQuery(
+            query="How to calculate ROI?",
+            query_type="calculation",
+            expected_keywords=["return", "investment", "formula"],
+            difficulty="medium"
+        )
+    ]
+    
+@pytest.fixture
+def mock_documents():
+    """
+    Mock documents for testing retrieval.
+    """
+    from langchain.schema import Document
+    
+    return [
+        Document(
+            page_content="Compound interest is interest calculated on the initial principal and accumulated interest.",
+            metadata={"source": "finance_basics", "strategy": "definition_focused"}
+        ),
+        Document(
+            page_content="ROI is calculated as (Gain - Cost) / Cost * 100%",
+            metadata={"source": "calculations", "strategy": "calculation_focused"}
+        )
+    ]
