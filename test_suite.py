@@ -256,7 +256,7 @@ def sample_test_queries():
     """
     return [
         TestQuery(
-            queryquery="What is compound interest?",
+            query="What is compound interest?",
             query_type="definition",
             expected_keywords=["interest", "compound", "principal"],
             difficulty="easy"
@@ -286,3 +286,30 @@ def mock_documents():
             metadata={"source": "calculations", "strategy": "calculation_focused"}
         )
     ]
+    
+# Performance Tests
+class TestPerformance:
+    """
+    Test performance characteristics.
+    """
+    
+    def test_query_classification_speed(self):
+        """
+        Test query classification performance.
+        """
+        import time
+        
+        classifier = QueryClassifier()
+        queries = ["What is compound interest?"] * 100
+        
+        start_time = time.time()
+        for query in queries:
+            classifier.classify(query)
+        end_time = time.time()
+        
+        avg_time = (end_time - start_time) / len(queries)
+        assert avg_time < 0.01 # Should be fast
+        
+if __name__ == "__main__":
+    # Run tests with: python -m pytest test_suite.py -v
+    pytest.main(["-v", __file__])
