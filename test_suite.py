@@ -140,4 +140,53 @@ class TestEvaluationFramework:
         assert 0 <= metrics["relevance"] <= 1
         assert 0 <= metrics["completeness"] <=1
         
-        
+@pytest.mark.asyncio
+class TestOptimizedChatbot:
+    """
+    Test the optimized chatbot functionality.
+    """
+    
+    async def test_chatbot_initialization(self):
+        """
+        Test chatbot initialization with mocked components.
+        """
+        with patch('optimized_chatbot.OpenAIEmbeddings'), \
+             patch('optimized_chatbot.PineconeVectorStore'), \
+             patch('optimized_chatbot.ChatOpenAI'):
+            
+            bot = OptimizedRAGChatbot("baseline")
+            assert bot.config.name == "baseline"
+            assert bot.stats['total'] == 0
+            
+    async def test_empty_query_handling(self):
+        """
+        Test handling of empty queries.
+        """
+        with patch('optimized_chatbot.OpenAIEmbeddings'), \
+             patch('optimized_chatbot.PineconeVectorStore'), \
+             patch('optimized_chatbot.ChatOpenAI'):
+            
+            bot = OptimizedRAGChatbot("baseline")
+            result = await bot.ask("")
+            
+            assert "error" in result
+            assert result["error"] == "empty_query"
+            
+    async def test_stats_tracking(self):
+        """
+        Test statistics tracking.
+        """
+        with patch('optimized_chatbot.OpenAIEmbeddings'), \
+             patch('optimized_chatbot.PineconeVectorStore'), \
+             patch('optimized_chatbot.ChatOpenAI'):
+            
+            bot = OptimizedRAGChatbot("baseline")
+            
+            # Mock the retriever and LLM
+            bot.retriever.retrieve = AsyncMock(return_value=[])
+            
+            await bot.ask("What is compound interest?")
+            
+            stats = bot.get_stats()
+            assert stats['total_queries'] == 1
+            assert stats['model_config'] == "baseline"
