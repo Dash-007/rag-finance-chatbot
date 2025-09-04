@@ -1,9 +1,9 @@
 import pytest
 import asyncio
 from unittest.mock import Mock, patch, AsyncMock
-from optimized_chatbot import OptimizedRAGChatbot, QueryClassifier, QueryType
-from evaluation_framework import RAGEvaluator, TestQuery, ABTestManager
-from config_manager import ConfigManager, ModelConfig
+from src.optimized_chatbot import OptimizedRAGChatbot, QueryClassifier, QueryType
+from src.evaluation_framework import RAGEvaluator, TestQuery, ABTestManager
+from src.config_manager import ConfigManager, ModelConfig
 
 class TestQueryClassifier:
     """
@@ -116,7 +116,7 @@ class TestEvaluationFramework:
         evaluator = RAGEvaluator("test_results")
         
         assert len(evaluator.test_queries) > 0
-        assert evaluator.result_dir.name == "test_results"
+        assert evaluator.results_dir.name == "test_results"
         
     def test_metric_calculation(self):
         """

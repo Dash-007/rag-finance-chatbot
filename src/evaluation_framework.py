@@ -50,8 +50,8 @@ class RAGEvaluator:
     """
     
     def __init__(self, results_dir: str = "evaluation_results"):
-        self.result_dir = Path(results_dir)
-        self.result_dir.mkdir(exist_ok=True)
+        self.results_dir = Path(results_dir).resolve().parent.parent / results_dir
+        self.results_dir.mkdir(exist_ok=True)
         self.test_queries = self._load_test_queries()
         
     def _load_test_queries(self) -> List[TestQuery]:
@@ -176,7 +176,7 @@ class RAGEvaluator:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"eval_results_{timestamp}.json"
             
-        filepath = self.result_dir / filename
+        filepath = self.results_dir / filename
         
         # Convert results to serializable format
         serializable_result = []
@@ -196,7 +196,7 @@ class RAGEvaluator:
         """
         Load evaluation results from JSON file.
         """
-        filepath = self.result_dir / filename
+        filepath = self.results_dir / filename
         
         with open(filepath, 'r') as f:
             data = json.load(f)
@@ -283,7 +283,7 @@ class ABTestManager:
             
             metric_sums = {}
             for result in results:
-                for metric, value in result.metric.items():
+                for metric, value in result.metrics.items():
                     metric_sums[metric] = metric_sums.get(metric, 0) + value
                     
             return {metric: total / len(results) for metric, total in metric_sums.items()}
@@ -298,7 +298,7 @@ class ABTestManager:
                 diff = metrics_b[metric] - metrics_a[metric]
                 improvements[metric] = {
                     'absolute_diff': diff,
-                    'percentage_diff': (diff / metrics_a[metric] * 100) if metrics_a[metric] > 0 else 0
+                    'percent_change': (diff / metrics_a[metric] * 100) if metrics_a[metric] > 0 else 0
                 }
                 
         # Average response times

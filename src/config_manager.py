@@ -130,7 +130,7 @@ class ConfigManager:
         Add new model configuration.
         """
         if "models" not in self.configs:
-            self.configs["model"] = {}
+            self.configs["models"] = {}
             
         self.configs["models"][config.name] = {
             "name": config.name,

@@ -6,9 +6,9 @@ import plotly.express as px
 from datetime import datetime
 from pathlib import Path
 
-from optimized_chatbot import OptimizedRAGChatbot, QueryType
-from config_manager import ConfigManager, ModelConfig
-from evaluation_framework import RAGEvaluator, ABTestManager, EvaluationMetric
+from src.optimized_chatbot import OptimizedRAGChatbot, QueryType
+from src.config_manager import ConfigManager, ModelConfig
+from src.evaluation_framework import RAGEvaluator, ABTestManager, EvaluationMetric
 
 # Page config
 st.set_page_config(
@@ -50,7 +50,7 @@ def initialize_components():
         return chatbot, evaluator, ab_manager
     
     except Exception as e:
-        st.error(f"Failed to initialize components: str{e}")
+        st.error(f"Failed to initialize components: {str(e)}")
         return None, None, None
     
 def main():
@@ -74,7 +74,7 @@ def main():
     if page == "💬 Chat Interface":
         chat_interface(chatbot)
     elif page == "📊 Performance Metrics":
-        chat_interface(evaluator)
+        performance_metrics(evaluator)
     elif page == "🧪 A/B Testing":
         ab_testing_interface(ab_manager, chatbot)
     elif page == "📈 Analytics":
@@ -233,7 +233,7 @@ def display_evaluation_results(results):
             "Query": r.query[:50] + "..." if len(r.query) > 50 else r.query,
             "Type": r.query_type,
             "Response Time": f"{r.response_time:.2f}s",
-            "Relevance": f"{r.metrics.get('relevelace', 0):.2f}",
+            "Relevance": f"{r.metrics.get('relevance', 0):.2f}",
             "Completeness": f"{r.metrics.get('completeness', 0):.2f}",
             "Sources": r.sources_used
         } for r in results
@@ -294,7 +294,7 @@ def ab_testing_interface(ab_manager, base_chatbot):
         st.markdown("**Model B Condiguration (Variant):**")
         col3, col4 = st.columns(2)
         with col3:
-            temp_b = st.slider("Temperature", 0.0, 0.1, 0.3, 0.5, 1.0)
+            temp_b = st.slider("Temperature", 0.0, 1.0, 0.3, 0.1)
         with col4:
             model_b = st.selectbox("Model", ["gpt-4", "gpt-3.5-turbo"], index=0)
             
@@ -365,7 +365,7 @@ def display_ab_results(results):
         st.markdown(f"### {results['model_b']['name']} (Variant)")
         metrics_b = results['model_b']['metrics']
         for metric, value in metrics_b.items():
-            if metric in results['imporovements']:
+            if metric in results['improvements']:
                 delta = results['improvements'][metric]['absolute_diff']
                 st.metric(
                     metric.replace('-', ' ').title(),
