@@ -6,9 +6,9 @@ import plotly.express as px
 from datetime import datetime
 from pathlib import Path
 
-from optimized_chatbot import OptimizedRAGChatbot, QueryType
-from config_manager import ConfigManager, ModelConfig
-from evaluation_framework import RAGEvaluator, ABTestManager, EvaluationMetric
+from src.optimized_chatbot import OptimizedRAGChatbot, QueryType
+from src.config_manager import ConfigManager, ModelConfig
+from src.evaluation_framework import RAGEvaluator, ABTestManager, EvaluationMetric
 
 # Page config
 st.set_page_config(

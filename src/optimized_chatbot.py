@@ -9,7 +9,7 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from langchain.schema import Document
 from langchain.prompts import PromptTemplate
-from config_manager import ConfigManager, ModelConfig
+from src.config_manager import ConfigManager, ModelConfig
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

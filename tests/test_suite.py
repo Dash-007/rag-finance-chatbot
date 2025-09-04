@@ -107,7 +107,7 @@ class TestEvaluationFramework:
         
         assert query.query == "What is compound interest?"
         assert query.query_type == "definition"
-        assert "inserest" in query.expected_keywords
+        assert "interest" in query.expected_keywords
         
     def test_evaluator_initialization(self):
         """
@@ -150,9 +150,9 @@ class TestOptimizedChatbot:
         """
         Test chatbot initialization with mocked components.
         """
-        with patch('optimized_chatbot.OpenAIEmbeddings'), \
-             patch('optimized_chatbot.PineconeVectorStore'), \
-             patch('optimized_chatbot.ChatOpenAI'):
+        with patch('src.optimized_chatbot.OpenAIEmbeddings'), \
+             patch('src.optimized_chatbot.PineconeVectorStore'), \
+             patch('src.optimized_chatbot.ChatOpenAI'):
             
             bot = OptimizedRAGChatbot("baseline")
             assert bot.config.name == "baseline"
@@ -162,9 +162,9 @@ class TestOptimizedChatbot:
         """
         Test handling of empty queries.
         """
-        with patch('optimized_chatbot.OpenAIEmbeddings'), \
-             patch('optimized_chatbot.PineconeVectorStore'), \
-             patch('optimized_chatbot.ChatOpenAI'):
+        with patch('src.optimized_chatbot.OpenAIEmbeddings'), \
+             patch('src.optimized_chatbot.PineconeVectorStore'), \
+             patch('src.optimized_chatbot.ChatOpenAI'):
             
             bot = OptimizedRAGChatbot("baseline")
             result = await bot.ask("")
@@ -176,9 +176,9 @@ class TestOptimizedChatbot:
         """
         Test statistics tracking.
         """
-        with patch('optimized_chatbot.OpenAIEmbeddings'), \
-             patch('optimized_chatbot.PineconeVectorStore'), \
-             patch('optimized_chatbot.ChatOpenAI'):
+        with patch('src.optimized_chatbot.OpenAIEmbeddings'), \
+             patch('src.optimized_chatbot.PineconeVectorStore'), \
+             patch('src.optimized_chatbot.ChatOpenAI'):
             
             bot = OptimizedRAGChatbot("baseline")
             
@@ -228,9 +228,9 @@ class TestIntegration:
         """
         Test evaluation pipeline with mocked components.
         """
-        with patch('optimized_chatbot.OpenAIEmbeddings'), \
-             patch('optimized_chatbot.PineconeVectorStore'), \
-             patch('optimized_chatbot.ChatOpenAI'):
+        with patch('src.optimized_chatbot.OpenAIEmbeddings'), \
+             patch('src.optimized_chatbot.PineconeVectorStore'), \
+             patch('src.optimized_chatbot.ChatOpenAI'):
             
             # Mock chatbot responses
             mock_chatbot = Mock()
