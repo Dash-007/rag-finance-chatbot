@@ -9,7 +9,7 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from langchain.schema import Document
 from langchain.prompts import PromptTemplate
-from config_manager import ConfigManager, ModelConfig
+from .config_manager import ConfigManager, ModelConfig
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -78,7 +78,7 @@ class QueryClassifier:
                     
             # Word matching
             query_words = query_lower.split()
-            for keyword in keyword:
+            for keyword in keywords:
                 keyword_words = keyword.split()
                 if any(word in query_words for word in keyword_words):
                     score += 0.2 * weight
@@ -98,8 +98,8 @@ class AdvancedRetriever:
     Optimized retrieval system with error handling and caching.
     """
     
-    def __init__(self, vectore_store: PineconeVectorStore, config: ModelConfig):
-        self.vector_store = vectore_store
+    def __init__(self, vector_store: PineconeVectorStore, config: ModelConfig):
+        self.vector_store = vector_store
         self.config = config
         self.cache = {} # In-memory cache
         
@@ -160,7 +160,7 @@ class AdvancedRetriever:
             # Fill remaining slots with highest scoring standard docs
             while len(definition_docs) < k and standard_docs:
                 doc, score = standard_docs.pop(0)
-                doc.metadata['stratedy'] = 'standard'
+                doc.metadata['strategy'] = 'standard'
                 doc.metadata['relevance_score'] = score
                 definition_docs.append(doc)
                 
@@ -182,10 +182,10 @@ class AdvancedRetriever:
             
             for doc, score in docs:
                 content_lower = doc.page_content.lower()
-                calc_indicators = {
+                calc_indicators = [
                     'formula', 'calculate', '=', '%', 'example', 'step',
                     'equation', 'method', 'how to', 'multiply', 'divide'
-                }
+                ]
                 
                 calc_score = sum(1 for indicator in calc_indicators if indicator in content_lower)
                 
