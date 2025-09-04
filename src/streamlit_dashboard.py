@@ -6,9 +6,9 @@ import plotly.express as px
 from datetime import datetime
 from pathlib import Path
 
-from src.optimized_chatbot import OptimizedRAGChatbot, QueryType
-from src.config_manager import ConfigManager, ModelConfig
-from src.evaluation_framework import RAGEvaluator, ABTestManager, EvaluationMetric
+from optimized_chatbot import OptimizedRAGChatbot, QueryType
+from config_manager import ConfigManager, ModelConfig
+from evaluation_framework import RAGEvaluator, ABTestManager, EvaluationMetric
 
 # Page config
 st.set_page_config(
@@ -126,7 +126,7 @@ def chat_interface(chatbot):
                 st.session_state.stats["types"][query_type] = st.session_state.stats["types"].get(query_type, 0) + 1
                 
                 # Store message with metadata
-                st.session_state.message.append({
+                st.session_state.messages.append({
                     "role": "assistant",
                     "content": response["response"],
                     "metadata": {
@@ -285,7 +285,6 @@ def ab_testing_interface(ab_manager, base_chatbot):
         
         with col1:
             test_name = st.text_input("Test Name", value="temperature_comparison")
-            model_a_name = st.text_input("Model A Name", value="baseline")
             
         with col2:
             model_b_name = st.text_input("Model B Name", value="variant")
@@ -294,9 +293,10 @@ def ab_testing_interface(ab_manager, base_chatbot):
         st.markdown("**Model B Condiguration (Variant):**")
         col3, col4 = st.columns(2)
         with col3:
-            temp_b = st.slider("Temperature", 0.0, 1.0, 0.3, 0.1)
+            model_a_name = st.text_input("Model A Name", value="baseline")
         with col4:
             model_b = st.selectbox("Model", ["gpt-4", "gpt-3.5-turbo"], index=0)
+            temp_b = st.slider("Temperature", 0.0, 1.0, 0.3, 0.1)
             
     # Run test
     if st.button("🚀 Run A/B Test", type="primary"):
