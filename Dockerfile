@@ -14,6 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Add the project root to Python path for imports
+ENV PYTHONPATH="${PYTHONPATH}:/app"
+
 # Create necessary directories
 RUN mkdir -p evaluation_results logs
 
