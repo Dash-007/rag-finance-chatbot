@@ -1,3 +1,4 @@
+# Core RAG Dependencies
 langchain
 langchain-community
 langchain-openai
@@ -5,3 +6,16 @@ langchain-pinecone
 python-dotenv
 openai
 pinecone-client
+
+# Evaluation Framework
+pandas
+numpy
+
+# Streamlit Dashboard
+streamlit
+plotly
+
+# Testing and Quality
+pytest
+black
+flake8

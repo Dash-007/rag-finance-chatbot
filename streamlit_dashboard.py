@@ -1,3 +1,5 @@
+import os
+import sys
 import streamlit as st
 import asyncio
 import json
@@ -5,6 +7,10 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 from pathlib import Path
+
+# For docker compatibility
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
 
 from src.optimized_chatbot import OptimizedRAGChatbot, QueryType
 from src.config_manager import ConfigManager, ModelConfig
