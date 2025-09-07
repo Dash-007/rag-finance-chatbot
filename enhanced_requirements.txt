@@ -1,0 +1,47 @@
+# Core RAG Dependencies
+langchain
+langchain-community
+langchain-openai
+langchain-pinecone
+python-dotenv
+openai
+pinecone-client
+
+# Enhanced Document Processing
+PyPDF2
+pdfplumber
+python-docx
+openpyxl
+xlrd
+
+# OCR and Image Processing (Optional)
+pytesseract
+Pillow
+
+# HTML and Web Content Processing
+beautifulsoup4
+lxml
+markdown
+
+# NLP and Text Processing (Optional)
+spacy
+
+# Data Processing
+pandas
+numpy
+
+# Streamlit Dashboard
+streamlit
+plotly
+
+# Testing and Quality
+pytest
+pytest-asyncio
+black
+flake8
+
+# File type detection
+python-magic
+
+# Progress tracking
+tqdm
