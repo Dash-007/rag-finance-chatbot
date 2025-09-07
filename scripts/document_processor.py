@@ -72,3 +72,38 @@ class ProcessingResult:
     error: Optional[str] = None
     processing_time: float = 0.0
     extracted_elements: Dict[str, Any] = field(default_factory=dict)
+    
+class BaseDocumentProcessor(ABC):
+    """
+    Abstract base class for document processors.
+    """
+    
+    @abstractmethod
+    async def process(self, file_path: Path, metadata: Dict[str, Any]) -> ProcessingResult:
+        """Process a document and return structured content."""
+        pass
+    
+    @abstractmethod
+    def can_process(self, file_path: Path) -> bool:
+        """Check if this processor can handle the file type."""
+        pass
+    
+    def _create_metadata(self, file_path: Path, **kwargs) -> DocumentMetadata:
+        """Create metadata for a document."""
+        file_stat = file_path.stat()
+        mime_type, _ = mimetypes.guess_type(str(file_path))
+        
+        # Generate file hash for deduplication
+        with open(file_path, 'rb') as f:
+            file_hash = hashlib.sha256(f.read()).hexdigest()
+            
+        return DocumentMetadata(
+            file_path=str(file_path),
+            file_name=file_path.name,
+            file_size=file_stat.st_size,
+            file_type=file_path.suffix.lower(),
+            mime_type=mime_type or "unknown",
+            document_hash=file_hash,
+            processed_date=datetime.now(),
+            **kwargs
+        )
