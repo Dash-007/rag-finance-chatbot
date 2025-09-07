@@ -60,3 +60,15 @@ class DocumentMetadata:
     version: str = "1.0"
     tags: List[str] = field(default_factory=list)
     custom_fields: Dict[str, Any] = field(default_factory=dict)
+    
+@dataclass
+class ProcessingResult:
+    """
+    Result of document processing.
+    """
+    success: bool
+    Document: List[Document]
+    metadata: DocumentMetadata
+    error: Optional[str] = None
+    processing_time: float = 0.0
+    extracted_elements: Dict[str, Any] = field(default_factory=dict)
