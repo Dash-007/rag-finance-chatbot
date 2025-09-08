@@ -131,7 +131,7 @@ class PDFProcessor(BaseDocumentProcessor):
         
         try:
             # Create metadata
-            doc_metada = self._create_metadata(file_path, **metadata)
+            doc_metadata = self._create_metadata(file_path, **metadata)
             
             # Extract text and structured data
             extracted_content = await self._extract_pdf_content(file_path)
@@ -156,7 +156,7 @@ class PDFProcessor(BaseDocumentProcessor):
             return ProcessingResult(
                 success=True,
                 documents=documents,
-                metadata=doc_metada,
+                metadata=doc_metadata,
                 processing_time=processing_time,
                 extracted_elements={
                     'tables': extracted_content.get('tables', []),
@@ -177,7 +177,7 @@ class PDFProcessor(BaseDocumentProcessor):
                 processing_time=processing_time
             )
             
-    async def _extarct_pdf_content(self, file_path: Path) -> Dict[str, Any]:
+    async def _extract_pdf_content(self, file_path: Path) -> Dict[str, Any]:
         """
         Extract text, tables, and images from PDF.
         """
@@ -250,3 +250,48 @@ class PDFProcessor(BaseDocumentProcessor):
             formatted_rows.append(" | ".join(formatted_row))
             
         return "\n".join(formatted_rows)
+    
+    def _create_page_mapping(self, chunks: List[str], full_text: str) -> Dict[int, List[int]]:
+        """
+        Map chunks to page numbers.
+        """
+        mapping = {}
+        # Simple implementation
+        for i, chunk in enumerate(chunks):
+            # Find page numbers mentioned in chunk
+            pages = []
+            lines = chunk.split('\n')
+            for line in lines:
+                if line.startswith('[Page '):
+                    try:
+                        page_num = int(line.split()[1].strip(']'))
+                        pages.append(page_num)
+                    except (IndexError, ValueError):
+                        continue
+            mapping[i] = pages
+        return mapping
+    
+    async def _fallback_pdf_extraction(self, file_path: Path) -> Dict[str, Any]:
+        """
+        Fallback extraction using PyPDF2.
+        """
+        content = {'text_chunks': [], 'tables': [], 'images': [], 'page_mapping': {}, 'pdf_metadata': {}}
+        
+        try:
+            with open(file_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                content['pdf_metadata'] = pdf_reader.metadata
+                
+                full_text = ""
+                for page_num, page in enumerate(pdf_reader.pages, 1):
+                    page_text = page.extract_text()
+                    full_text += f"\n[Page {page_num}]\n" + page_text
+                    
+                chunks = self.text_splitter.split_text(full_text)
+                content['text_chunks'] = chunks
+                content['page_mapping'] = self._create_page_mapping(chunks, full_text)
+                
+        except Exception as e:
+            logger.error(f"Fallback PDF extraction failed: {e}")
+            
+        return content
