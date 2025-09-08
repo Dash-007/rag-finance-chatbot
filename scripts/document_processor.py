@@ -176,3 +176,77 @@ class PDFProcessor(BaseDocumentProcessor):
                 error=str(e),
                 processing_time=processing_time
             )
+            
+    async def _extarct_pdf_content(self, file_path: Path) -> Dict[str, Any]:
+        """
+        Extract text, tables, and images from PDF.
+        """
+        content = {
+            'text_chunks': [],
+            'tables': [],
+            'images': [],
+            'page_mapping': {},
+            'pdf_metadata': {}
+        }
+        
+        try:
+            # Use pdfplumber for text and table extraction
+            with pdfplumber.open(file_path) as pdf:
+                content['pdf_metadata'] = pdf.metadata
+                full_text = ""
+                
+                for page_num, page in enumerate(pdf.pages, 1):
+                    # Extract text
+                    page_text = page.extract_text() or ""
+                    full_text += f"\n[Page {page_num}]\n" + page_text
+                    
+                    # Extract table
+                    tables = page.extract_tables()
+                    for table in tables:
+                        if table: # Skip empty tables
+                            content['tables'].append({
+                                'page': page_num,
+                                'data': table,
+                                'text_representation': self._table_to_text(table)
+                            })
+                            
+                    # Chunk the text
+                    chunks = self.text_splitter.split_text(full_text)
+                    content['text_chunks'] = chunks
+                    
+                    # Create page mapping for chunks
+                    content['page_mapping'] = self._create_page_mapping(chunks, full_text)
+                    
+        except Exception as e:
+            # Fallback to PyPDF2 for basic text extraction
+            logger.warning(f"pdfplumber failed, falling back to PyPDF2: {e}")
+            content = await self._fallback_pdf_extraction(file_path)
+            
+        return content
+    
+    def _table_to_text(self, table: List[List[str]]) -> str:
+        """
+        Convert table data to readable text format.
+        """
+        if not table:
+            return ""
+        
+        # Find the maximum width for each column
+        col_widths = []
+        for row in table:
+            for i, cell in enumerate(row):
+                if i >= len(col_widths):
+                    col_widths.append(0)
+                if cell:
+                    col_widths[i] = max(col_widths[i], len(str(cell)))
+                    
+        # Format table as text
+        formatted_rows = []
+        for row in table:
+            formatted_row = []
+            for i, cell in enumerate(row):
+                cell_str = str(cell) if cell else ""
+                formatted_row.append(cell_str.ljust(col_widths[i]))
+            formatted_rows.append(" | ".join(formatted_row))
+            
+        return "\n".join(formatted_rows)
