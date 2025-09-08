@@ -67,7 +67,7 @@ class ProcessingResult:
     Result of document processing.
     """
     success: bool
-    Document: List[Document]
+    documents: List[Document]
     metadata: DocumentMetadata
     error: Optional[str] = None
     processing_time: float = 0.0
@@ -107,3 +107,72 @@ class BaseDocumentProcessor(ABC):
             processed_date=datetime.now(),
             **kwargs
         )
+        
+class PDFProcessor(BaseDocumentProcessor):
+    """
+    Advanced PDF processor with OCR and table extraction.
+    """
+    
+    def __init__(self):
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            seperators=["\n\n", "\n", ". ", " ", ""]
+        )
+        
+    def can_process(self, file_path: Path) -> bool:
+        return file_path.suffix.lower() == ".pdf"
+    
+    async def process(self, file_path: Path, metadata: Dict[str, Any]) -> ProcessingResult:
+        """
+        Process PDF with advanced extraction capabilities.
+        """
+        start_time = asyncio.get_event_loop().time()
+        
+        try:
+            # Create metadata
+            doc_metada = self._create_metadata(file_path, **metadata)
+            
+            # Extract text and structured data
+            extracted_content = await self._extract_pdf_content(file_path)
+            # Create documents with enhanced metadata
+            documents = []
+            for i, chunk in enumerate(extracted_content["text_chunks"]):
+                if chunk.strip(): # Skip empty chunks
+                    doc = Document(
+                        page_content=chunk,
+                        metadata={
+                            **doc_metadata.__dict__,
+                            'chunk_id': i,
+                            'page_numbers': extracted_content.get('page_mapping', {}).get(i, []),
+                            'has_tables': bool(extracted_content.get('tables')),
+                            'has_images': bool(extracted_content.get('images'))
+                        }
+                    )
+                    documents.append(doc)
+                    
+            processing_time = asyncio.get_event_loop().time() - start_time
+            
+            return ProcessingResult(
+                success=True,
+                documents=documents,
+                metadata=doc_metada,
+                processing_time=processing_time,
+                extracted_elements={
+                    'tables': extracted_content.get('tables', []),
+                    'images': extracted_content.get('image', []),
+                    'metdata': extracted_content.get('pdf_metadata', {})
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Error processing PDF {file_path}: {e}")
+            processing_time = asyncio.get_event_loop().time() - start_time
+            
+            return ProcessingResult(
+                success=False,
+                documents=[],
+                metadata=self._create_metadata(file_path, **metadata),
+                error=str(e),
+                processing_time=processing_time
+            )
