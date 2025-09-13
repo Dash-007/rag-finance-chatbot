@@ -199,4 +199,7 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# Claude Code
+CLAUDE.md
+
 # End of https://www.toptal.com/developers/gitignore/api/python,windows

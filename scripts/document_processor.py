@@ -295,3 +295,77 @@ class PDFProcessor(BaseDocumentProcessor):
             logger.error(f"Fallback PDF extraction failed: {e}")
             
         return content
+    
+class WordProcessor(BaseDocumentProcessor):
+    """
+    Process Microsoft Word documents.
+    """
+    
+    def can_process(self, file_path: Path) -> bool:
+        return file_path.suffix.lower() in ['.docx', '.doc']
+    
+    async def process(self, file_path: Path, metadata: Dict[str, Any]) -> ProcessingResult:
+        """
+        Process Word document.
+        """
+        start_time = asyncio.get_event_loop().time()
+        
+        try:
+            doc_metadata = self._create_metadata(file_path, **metadata)
+            
+            # Extract content from Word document
+            doc = DocxDocument(file_path)
+            
+            # Extract text
+            full_text = ""
+            for paragraph in doc.paragraphs:
+                full_text += paragraph.text + "\n"
+                
+            # Extract tables
+            tables = []
+            for table in doc.tables:
+                table_data = []
+                for row in table.rows:
+                    row_data = [cell.text for cell in row.cells]
+                    table_data.append(row_data)
+                tables.append(table_data)
+                
+            # Split into chunks
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            chunks = text_splitter.split_text(full_text)
+            
+            # Create documents
+            documents = []
+            for i, chunk in enumerate(chunks):
+                if chunk.strip():
+                    doc_obj = Document(
+                        page_content=chunk,
+                        metadata={
+                            **doc_metadata.__dict__,
+                            'chunk_id': i,
+                            "has_tables": bool(tables)
+                        }
+                    )
+                    documents.append(doc_obj)
+                    
+            processing_time = asyncio.get_event_loop().time() - start_time
+            
+            return ProcessingResult(
+                success=True,
+                documents=documents,
+                metadata=doc_metadata,
+                processing_time=processing_time,
+                extracted_elements={'tables': tables}
+            )
+            
+        except Exception as e:
+            logger.error(f"Error processing Word document {file_path}: {e}")
+            processing_time = asyncio.get_event_loop().time() - start_time
+            
+            return ProcessingResult(
+                success=False,
+                documents=[],
+                metadata=self._create_metadata(file_path, **metadata),
+                error=str(e),
+                processing_time=processing_time
+            )
