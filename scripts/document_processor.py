@@ -369,3 +369,65 @@ class WordProcessor(BaseDocumentProcessor):
                 error=str(e),
                 processing_time=processing_time
             )
+            
+class ExcelProcessor(BaseDocumentProcessor):
+    """
+    Process Excel spreadsheets.
+    """
+    
+    def can_process(self, file_path: Path) -> bool:
+        return file_path.suffix.lower() in ['.xlsx', '.xls']
+    
+    async def process(self, file_path: Path, metadata: Dict[str, Any]) -> ProcessingResult:
+        """
+        Process Excel file.
+        """
+        start_time = asyncio.get_event_loop().time()
+        
+        try:
+            doc_metadata = self._create_metadata(file_path, **metadata)
+            
+            # Read all sheets
+            excel_file = pd.ExcelFile(file_path)
+            documents = []
+            
+            for sheet_name in excel_file.sheet_names:
+                df = pd.read_excel(file_path, sheet_name=sheet_name)
+                
+                # Convert DataFrame to text representation
+                sheet_text = f"Sheet: {sheet_name}\n"
+                sheet_text += df.to_string(index=False)
+                
+                # Create document for each sheet
+                doc = Document(
+                    page_content=sheet_text,
+                    metadata={
+                        **doc_metadata.__dict__,
+                        'sheet_name': sheet_name,
+                        'rows': len(df),
+                        'columns': len(df.columns)
+                    }
+                )
+                documents.append(doc)
+                
+                processing_time = asyncio.get_event_loop().time() - start_time
+                
+                return ProcessingResult(
+                    success=True,
+                    documents=documents,
+                    metadata=doc_metadata,
+                    processing_time=processing_time,
+                    extracted_elements={'sheets': excel_file.sheet_names}
+                )
+                
+        except Exception as e:
+            logger.error(f"Error processing Excel file {file_path}: {e}")
+            processing_time = asyncio.get_event_loop().time() - start_time
+            
+            return ProcessingResult(
+                success=False,
+                documents=[],
+                metadata=self._create_metadata(file_path, **metadata),
+                error=str(e),
+                processing_time=processing_time
+            )
