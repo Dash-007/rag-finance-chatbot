@@ -431,3 +431,56 @@ class ExcelProcessor(BaseDocumentProcessor):
                 error=str(e),
                 processing_time=processing_time
             )
+            
+class EnterpriseDocumentProcessor:
+    """
+    Main document processing coordinator for enterprise documents.
+    """
+    
+    def __init__(self):
+        self.processors = [
+            PDFProcessor(),
+            WordProcessor(),
+            ExcelProcessor()
+        ]
+        self.processing_stats = {
+            'total_processed': 0,
+            'successful': 0,
+            'failed': 0,
+            'by_type': {}
+        }
+        
+    async def process_document(self, file_path: Union[str, Path], metadata: Optional[Dict[str, Any]] = None) -> ProcessingResult:
+        """
+        Process a single document using the appropriate processor.
+        """
+        file_path = Path(file_path)
+        metadata = metadata or {}
+        
+        # Find appropriate processor
+        processor = self._find_processor(file_path)
+        if not processor:
+            return ProcessingResult(
+                success=False,
+                documents=[],
+                metadata=DocumentMetadata(
+                    file_path=str(file_path),
+                    file_name=file_path.name,
+                    file_size=0,
+                    file_type=file_path.suffix,
+                    mime_type="unknown",
+                    document_hash="",
+                    processed_date=datetime.now()
+                ),
+                error=f"No processor found for file type: {file_path.suffix}"
+            )
+            
+        # Process document
+        result = await processor.process(file_path, metadata)
+        
+        # Update statistics
+        self._update_stats(result)
+        
+        return result
+        
+    
