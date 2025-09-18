@@ -50,7 +50,7 @@ class DocumentMetadata:
     mime_type: str
     document_hash: str
     processed_date: datetime
-    source_system: Optional[str]
+    source_system: Optional[str] = None
     department: Optional[str] = None
     classification: str = "public" # public, internal, confidential, restricted
     author: Optional[str] = None
@@ -483,4 +483,31 @@ class EnterpriseDocumentProcessor:
         
         return result
         
+    def _find_processor(self, file_path: Path) -> Optional[BaseDocumentProcessor]:
+        """
+        Find the appropriate processor for a file.
+        """
+        for processor in self.processors:
+            if processor.can_process(file_path):
+                return processor
+        return None
     
+    def _update_stats(self, result: ProcessingResult):
+        """
+        Updating processing statistics.
+        """
+        self.processing_stats['total_processed'] += 1
+        
+        if result.success:
+            self.processing_stats['successful'] += 1
+        else:
+            self.processing_stats['failed'] += 1
+            
+        file_type = result.metadata.file_type
+        if file_type not in self.processing_stats['by_type']:
+            self.processing_stats['by_type'][file_type] = {'successful': 0, 'failed': 0}
+            
+        if result.success:
+            self.processing_stats['by_type'][file_type]['successful'] += 1
+        else:
+            self.processing_stats['by_type'][file_type]['failed'] += 1
