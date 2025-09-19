@@ -532,3 +532,22 @@ class EnterpriseDocumentProcessor:
             self.processing_stats['by_type'][file_type]['successful'] += 1
         else:
             self.processing_stats['by_type'][file_type]['failed'] += 1
+            
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        Get processing statistics.
+        """
+        return self.processing_stats.copy()
+    
+    def reset_stats(self):
+        """
+        Reset processing statistics.
+        """
+        self.processing_stats = {
+            'total_processed': 0,
+            'successful': 0,
+            'failed': 0,
+            'by_type': {}
+        }
+        
+    
