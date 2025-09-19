@@ -482,6 +482,27 @@ class EnterpriseDocumentProcessor:
         self._update_stats(result)
         
         return result
+    
+    async def process_directory(self, directory_path: Union[str, Path],
+                                metadata: Optional[Dict[str, Any]] = None,
+                                recursive: bool = True) -> List[ProcessingResult]:
+        """
+        Process all documents in a directory.
+        """
+        directory_path = Path(directory_path)
+        results = []
+        
+        if recursive:
+            pattern = "**/*"
+        else:
+            pattern = "*"
+            
+        for file_path in directory_path.glob(pattern):
+            if file_path.is_file() and self._find_processor(file_path):
+                result = await self.process_document(file_path, metadata)
+                results.append(result)
+                
+        return results
         
     def _find_processor(self, file_path: Path) -> Optional[BaseDocumentProcessor]:
         """
