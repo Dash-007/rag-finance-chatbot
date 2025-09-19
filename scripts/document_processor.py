@@ -550,4 +550,31 @@ class EnterpriseDocumentProcessor:
             'by_type': {}
         }
         
+# Example usage and testing
+async def demo_enterprise_processing():
+    """
+    Demonstrate enterprise document processing.
+    """
+    processor = EnterpriseDocumentProcessor()
     
+    # Example metadata data for enterprise context
+    metadata = {
+        'department': 'Finance',
+        'classification': 'internal',
+        'document_type': 'financial_report',
+        'author': 'John Doe',
+        'tags': ['quarterly', 'earnings', '2024']
+    }
+    
+    # Process single document
+    # result = await processor.process_document('path/to/document.pdf', metadata)
+    
+    # Process all documents in a directory
+    # results = await processor.process_directory('path/to/documents/', metadata)
+    
+    print("Enterprise Document Processor Ready!")
+    print("Supported formats: PDF, Word (.docx), Excel (.xlsx)")
+    print("Features: Table extraction, metadata preservation, chunking optimization")
+    
+if __name__ == "__main__":
+    asyncio.run(demo_enterprise_processing())
