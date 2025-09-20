@@ -50,7 +50,7 @@ class DocumentMetadata:
     mime_type: str
     document_hash: str
     processed_date: datetime
-    source_system: Optional[str]
+    source_system: Optional[str] = None
     department: Optional[str] = None
     classification: str = "public" # public, internal, confidential, restricted
     author: Optional[str] = None
@@ -431,3 +431,150 @@ class ExcelProcessor(BaseDocumentProcessor):
                 error=str(e),
                 processing_time=processing_time
             )
+            
+class EnterpriseDocumentProcessor:
+    """
+    Main document processing coordinator for enterprise documents.
+    """
+    
+    def __init__(self):
+        self.processors = [
+            PDFProcessor(),
+            WordProcessor(),
+            ExcelProcessor()
+        ]
+        self.processing_stats = {
+            'total_processed': 0,
+            'successful': 0,
+            'failed': 0,
+            'by_type': {}
+        }
+        
+    async def process_document(self, file_path: Union[str, Path], metadata: Optional[Dict[str, Any]] = None) -> ProcessingResult:
+        """
+        Process a single document using the appropriate processor.
+        """
+        file_path = Path(file_path)
+        metadata = metadata or {}
+        
+        # Find appropriate processor
+        processor = self._find_processor(file_path)
+        if not processor:
+            return ProcessingResult(
+                success=False,
+                documents=[],
+                metadata=DocumentMetadata(
+                    file_path=str(file_path),
+                    file_name=file_path.name,
+                    file_size=0,
+                    file_type=file_path.suffix,
+                    mime_type="unknown",
+                    document_hash="",
+                    processed_date=datetime.now()
+                ),
+                error=f"No processor found for file type: {file_path.suffix}"
+            )
+            
+        # Process document
+        result = await processor.process(file_path, metadata)
+        
+        # Update statistics
+        self._update_stats(result)
+        
+        return result
+    
+    async def process_directory(self, directory_path: Union[str, Path],
+                                metadata: Optional[Dict[str, Any]] = None,
+                                recursive: bool = True) -> List[ProcessingResult]:
+        """
+        Process all documents in a directory.
+        """
+        directory_path = Path(directory_path)
+        results = []
+        
+        if recursive:
+            pattern = "**/*"
+        else:
+            pattern = "*"
+            
+        for file_path in directory_path.glob(pattern):
+            if file_path.is_file() and self._find_processor(file_path):
+                result = await self.process_document(file_path, metadata)
+                results.append(result)
+                
+        return results
+        
+    def _find_processor(self, file_path: Path) -> Optional[BaseDocumentProcessor]:
+        """
+        Find the appropriate processor for a file.
+        """
+        for processor in self.processors:
+            if processor.can_process(file_path):
+                return processor
+        return None
+    
+    def _update_stats(self, result: ProcessingResult):
+        """
+        Updating processing statistics.
+        """
+        self.processing_stats['total_processed'] += 1
+        
+        if result.success:
+            self.processing_stats['successful'] += 1
+        else:
+            self.processing_stats['failed'] += 1
+            
+        file_type = result.metadata.file_type
+        if file_type not in self.processing_stats['by_type']:
+            self.processing_stats['by_type'][file_type] = {'successful': 0, 'failed': 0}
+            
+        if result.success:
+            self.processing_stats['by_type'][file_type]['successful'] += 1
+        else:
+            self.processing_stats['by_type'][file_type]['failed'] += 1
+            
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        Get processing statistics.
+        """
+        return self.processing_stats.copy()
+    
+    def reset_stats(self):
+        """
+        Reset processing statistics.
+        """
+        self.processing_stats = {
+            'total_processed': 0,
+            'successful': 0,
+            'failed': 0,
+            'by_type': {}
+        }
+        
+# Example usage and testing
+async def demo_enterprise_processing():
+    """
+    Demonstrate enterprise document processing.
+    """
+    processor = EnterpriseDocumentProcessor()
+    
+    # Example metadata data for enterprise context
+    metadata = {
+        'department': 'Finance',
+        'classification': 'internal',
+        'document_type': 'financial_report',
+        'author': 'John Doe',
+        'tags': ['quarterly', 'earnings', '2024']
+    }
+    
+    # Process single document
+    # result = await processor.process_document('path/to/document.pdf', metadata)
+    
+    # Process all documents in a directory
+    # results = await processor.process_directory('path/to/documents/', metadata)
+    
+    print("Enterprise Document Processor Ready!")
+    print("Supported formats: PDF, Word (.docx), Excel (.xlsx)")
+    print("Features: Table extraction, metadata preservation, chunking optimization")
+    
+if __name__ == "__main__":
+    asyncio.run(demo_enterprise_processing())
